@@ -2,22 +2,76 @@ set root [file dirname [file dirname [info script]]]
 source [file join $root lib protocol.tcl]
 
 set port 17777
-if {[llength $argv] > 0} { set port [lindex $argv 0] }
 
-set first [socket localhost $port]
-set second [socket localhost $port]
-fconfigure $first -buffering line -translation lf
-fconfigure $second -buffering line -translation lf
+if {[llength $argv] > 0} {
+    set port [lindex $argv 0]
+}
 
-set record [retrochat::makeRecord CHAT [list Tester "relay smoke test"]]
-puts $first $record
+proc fail {message} {
+    puts stderr "FAIL $message"
+    exit 1
+}
+
+proc waitForRecord {channel expected timeoutSeconds} {
+    set deadline [expr {[clock seconds] + $timeoutSeconds}]
+
+    while {[clock seconds] <= $deadline} {
+        if {[eof $channel]} {
+            fail "server closed connection"
+        }
+
+        set count [gets $channel line]
+
+        if {$count >= 0} {
+            if {$line == $expected} {
+                return
+            }
+        } else {
+            after 25
+        }
+    }
+
+    fail "timed out waiting for relay record"
+}
+
+if {[catch {socket localhost $port} first]} {
+    fail "could not connect first client: $first"
+}
+
+if {[catch {socket localhost $port} second]} {
+    catch {close $first}
+    fail "could not connect second client: $second"
+}
+
+fconfigure $first \
+    -blocking 0 \
+    -buffering line \
+    -translation lf
+
+fconfigure $second \
+    -blocking 0 \
+    -buffering line \
+    -translation lf
+
+# Ensure the server has accepted both connections before testing the relay.
+set readyRecord [retrochat::makeRecord HELLO [list RelayTest 1]]
+
+puts $second $readyRecord
+flush $second
+
+waitForRecord $first $readyRecord 5
+
+set chatRecord [retrochat::makeRecord CHAT \
+    [list Tester "relay smoke test"]]
+
+puts $first $chatRecord
 flush $first
-set received [gets $second]
+
+# The second client may still have its own HELLO echo queued. Ignore records
+# until the expected chat record arrives or the timeout expires.
+waitForRecord $second $chatRecord 5
 
 close $first
 close $second
-if {$received != $record} {
-    puts stderr "FAIL relay mismatch"
-    exit 1
-}
+
 puts "relay test passed"
