@@ -1,0 +1,8 @@
+{
+  "files.associations": {
+    "*.tcl": "tcl",
+    "*.test": "tcl"
+  },
+  "tclLsp.runtimeValidation.tclshPath": "/opt/homebrew/bin/tclsh",
+  "editor.formatOnSave": false
+}

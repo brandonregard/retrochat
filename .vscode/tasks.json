@@ -1,0 +1,74 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "RetroChat: Server",
+      "type": "shell",
+      "command": "/opt/homebrew/bin/tclsh",
+      "args": [
+        "server.tcl",
+        "7777"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "RetroChat: Client",
+      "type": "shell",
+      "command": "/opt/homebrew/bin/wish",
+      "args": [
+        "client.tcl"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "runOptions": {
+        "instanceLimit": 5
+      },
+      "presentation": {
+        "panel": "new",
+        "reveal": "always",
+        "focus": false
+      },
+      "problemMatcher": []
+    }
+    {
+      "label": "RetroChat: Protocol Tests",
+      "type": "shell",
+      "command": "/opt/homebrew/bin/tclsh",
+      "args": [
+        "tests/protocol.test"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "RetroChat: Lint",
+      "type": "shell",
+      "command": "/Users/brandon/.local/bin/tclint",
+      "args": [
+        "--ignore",
+        "command-args",
+        "."
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "RetroChat: Verify",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "RetroChat: Lint",
+        "RetroChat: Protocol Tests"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

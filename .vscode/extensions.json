@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "bitwisecook.tcl-lsp",
+    "ms-python.python"
+  ],
+  "unwantedRecommendations": [
+    "nmoroze.tclint"
+  ]
+}
