@@ -35,7 +35,15 @@ make_app() {
     mkdir -p "$app/Contents/Resources/runtime/bin"
     mkdir -p "$app/Contents/Resources/runtime/lib"
 
-    cp "$tcl_prefix/bin/$executable" "$app/Contents/Resources/runtime/bin/"
+    if [ "$executable" = "wish" ]; then
+        clang -Os -I"$tcl_prefix/include/tcl-tk" packaging/macos/launcher.c \
+            -L"$tcl_prefix/lib" -ltcl9tk9.0 -ltcl9.0 \
+            -o "$app/Contents/Resources/runtime/bin/RetroChat"
+        runtime_executable=RetroChat
+    else
+        cp "$tcl_prefix/bin/$executable" "$app/Contents/Resources/runtime/bin/"
+        runtime_executable=$executable
+    fi
     cp "$tcl_prefix/lib/libtcl9.0.dylib" "$app/Contents/Resources/runtime/lib/"
     cp "$tcl_prefix/lib/libtcl9tk9.0.dylib" "$app/Contents/Resources/runtime/lib/"
     cp "$tommath_prefix/lib/libtommath.1.dylib" "$app/Contents/Resources/runtime/lib/"
@@ -88,24 +96,27 @@ resources="\$(cd "\$(dirname "\$0")/../Resources" && pwd)"
 export TCL_LIBRARY="\$resources/runtime/lib/tcl9.0"
 export TK_LIBRARY="\$resources/runtime/lib/tk9.0"
 export TCLLIBPATH="\$resources/runtime/lib"
-exec "\$resources/runtime/bin/$executable" "\$resources/app/$script" "\$@"
+exec "\$resources/runtime/bin/$runtime_executable" "\$resources/app/$script" "\$@"
 EOF
     fi
     chmod 755 "$app/Contents/MacOS/launcher"
 
-    install_name_tool -change "$tcl_real_prefix/lib/libtcl9.0.dylib" \
-        @executable_path/../lib/libtcl9.0.dylib \
-        "$app/Contents/Resources/runtime/bin/$executable"
-    install_name_tool -change "$tcl_real_prefix/lib/libtcl9tk9.0.dylib" \
-        @executable_path/../lib/libtcl9tk9.0.dylib \
-        "$app/Contents/Resources/runtime/bin/$executable"
+    for old_tcl_prefix in "$tcl_prefix" "$tcl_real_prefix"
+    do
+        install_name_tool -change "$old_tcl_prefix/lib/libtcl9.0.dylib" \
+            @executable_path/../lib/libtcl9.0.dylib \
+            "$app/Contents/Resources/runtime/bin/$runtime_executable"
+        install_name_tool -change "$old_tcl_prefix/lib/libtcl9tk9.0.dylib" \
+            @executable_path/../lib/libtcl9tk9.0.dylib \
+            "$app/Contents/Resources/runtime/bin/$runtime_executable"
+    done
     for old_tommath in \
         "$tommath_prefix/lib/libtommath.1.dylib" \
         "$tommath_real_prefix/lib/libtommath.1.dylib"
     do
         install_name_tool -change "$old_tommath" \
             @executable_path/../lib/libtommath.1.dylib \
-            "$app/Contents/Resources/runtime/bin/$executable"
+            "$app/Contents/Resources/runtime/bin/$runtime_executable"
         install_name_tool -change "$old_tommath" \
             @loader_path/libtommath.1.dylib \
             "$app/Contents/Resources/runtime/lib/libtcl9.0.dylib"
@@ -123,7 +134,7 @@ EOF
     codesign --force --sign - "$app/Contents/Resources/runtime/lib/libtommath.1.dylib"
     codesign --force --sign - "$app/Contents/Resources/runtime/lib/libtcl9.0.dylib"
     codesign --force --sign - "$app/Contents/Resources/runtime/lib/libtcl9tk9.0.dylib"
-    codesign --force --sign - "$app/Contents/Resources/runtime/bin/$executable"
+    codesign --force --sign - "$app/Contents/Resources/runtime/bin/$runtime_executable"
     codesign --force --sign - "$app"
 }
 
