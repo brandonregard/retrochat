@@ -1,0 +1,79 @@
+name: Verify
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Tcl lint
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install tclint
+        run: python -m pip install tclint==0.9.0
+
+      - name: Lint Tcl sources
+        run: tclint --ignore command-args .
+
+  protocol:
+    name: Protocol — ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - macos-15
+          - windows-2025
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install Tcl on Linux
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes tcl
+
+      - name: Install Tcl on macOS
+        if: runner.os == 'macOS'
+        run: brew install tcl-tk
+
+      - name: Install Tcl on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install magicsplat-tcl-tk --yes --no-progress
+          "C:\Program Files\Tcl\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: Run protocol tests on Unix
+        if: runner.os != 'Windows'
+        run: tclsh tests/protocol.test
+
+      - name: Run protocol tests on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tclsh = Get-ChildItem "C:\Program Files\Tcl\bin" -Filter "tclsh*.exe" |
+            Sort-Object Name -Descending |
+            Select-Object -First 1
+
+          if (-not $tclsh) {
+            throw "No Tcl interpreter found"
+          }
+
+          & $tclsh.FullName tests/protocol.test
