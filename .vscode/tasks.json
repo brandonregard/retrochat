@@ -34,7 +34,7 @@
         "focus": false
       },
       "problemMatcher": []
-    }
+    },
     {
       "label": "RetroChat: Protocol Tests",
       "type": "shell",
