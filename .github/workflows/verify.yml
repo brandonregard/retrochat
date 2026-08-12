@@ -2,7 +2,8 @@ name: Verify
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
   pull_request:
   workflow_dispatch:
 
@@ -31,6 +32,7 @@ jobs:
 
   protocol:
     name: Protocol — ${{ matrix.os }}
+
     strategy:
       fail-fast: false
       matrix:
@@ -47,33 +49,61 @@ jobs:
 
       - name: Install Tcl on Linux
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install --yes tcl
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes tcl
 
       - name: Install Tcl on macOS
         if: runner.os == 'macOS'
         run: brew install tcl-tk
 
-      - name: Install Tcl on Windows
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          choco install magicsplat-tcl-tk --yes --no-progress
-          "C:\Program Files\Tcl\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
-
       - name: Run protocol tests on Unix
         if: runner.os != 'Windows'
         run: tclsh tests/protocol.test
 
-      - name: Run protocol tests on Windows
+      - name: Install and test Tcl on Windows
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $tclsh = Get-ChildItem "C:\Program Files\Tcl\bin" -Filter "tclsh*.exe" |
-            Sort-Object Name -Descending |
+          choco install magicsplat-tcl-tk --yes --no-progress
+
+          $tclsh = Get-Command tclsh*.exe -ErrorAction SilentlyContinue |
             Select-Object -First 1
 
           if (-not $tclsh) {
-            throw "No Tcl interpreter found"
+            $roots = @(
+              "C:\Program Files",
+              "C:\Program Files (x86)",
+              "C:\Tcl",
+              "C:\tools",
+              $env:ChocolateyInstall
+            ) | Where-Object {
+              $_ -and (Test-Path $_)
+            }
+
+            $tclsh = Get-ChildItem `
+              -Path $roots `
+              -Filter "tclsh*.exe" `
+              -File `
+              -Recurse `
+              -ErrorAction SilentlyContinue |
+              Sort-Object FullName -Descending |
+              Select-Object -First 1
           }
 
-          & $tclsh.FullName tests/protocol.test
+          if (-not $tclsh) {
+            throw "No Tcl interpreter found after installing Magicsplat Tcl/Tk"
+          }
+
+          $executable = if ($tclsh.Source) {
+            $tclsh.Source
+          } else {
+            $tclsh.FullName
+          }
+
+          Write-Host "Using Tcl interpreter: $executable"
+          & $executable tests/protocol.test
+
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
