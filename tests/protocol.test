@@ -1,0 +1,26 @@
+set root [file dirname [file dirname [info script]]]
+source [file join $root lib protocol.tcl]
+
+proc assertEqual {actual expected label} {
+    if {$actual != $expected} {
+        puts stderr "FAIL $label: expected <$expected>, got <$actual>"
+        exit 1
+    }
+}
+
+set samples [list "hello" "spaces and tabs\there" "" "line one\nline two" [binary format H* 00ff10]]
+foreach sample $samples {
+    assertEqual [retrochat::hexDecode [retrochat::hexEncode $sample]] $sample "hex round trip"
+}
+
+set parsed [retrochat::parseRecord [retrochat::makeRecord CHAT [list Alice "Hello world"]]]
+assertEqual [lindex $parsed 0] CHAT "command"
+assertEqual [lindex [lindex $parsed 1] 0] Alice "first field"
+assertEqual [lindex [lindex $parsed 1] 1] "Hello world" "second field"
+
+if {![catch {retrochat::parseRecord "CHAT xyz"}]} {
+    puts stderr "FAIL malformed hex accepted"
+    exit 1
+}
+puts "protocol tests passed"
+
