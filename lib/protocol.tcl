@@ -10,7 +10,7 @@ proc retrochat::hexEncode {value} {
 }
 
 proc retrochat::hexDecode {value} {
-    if {[expr {[string length $value] % 2}] != 0 ||
+    if {[string length $value] % 2 != 0 ||
         ![regexp {^[0-9a-fA-F]*$} $value]} {
         error "invalid hexadecimal field"
     }
