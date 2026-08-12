@@ -1,0 +1,10 @@
+#!/bin/sh
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if command -v wish >/dev/null 2>&1; then
+    exec wish "$script_dir/client.tcl" "$@"
+fi
+if [ -x /usr/pkg/bin/wish ]; then
+    exec /usr/pkg/bin/wish "$script_dir/client.tcl" "$@"
+fi
+echo "RetroChat client requires Tk (wish). Install the pkgsrc tk package." >&2
+exit 127

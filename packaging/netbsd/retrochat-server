@@ -1,0 +1,10 @@
+#!/bin/sh
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if command -v tclsh >/dev/null 2>&1; then
+    exec tclsh "$script_dir/server.tcl" "$@"
+fi
+if [ -x /usr/pkg/bin/tclsh ]; then
+    exec /usr/pkg/bin/tclsh "$script_dir/server.tcl" "$@"
+fi
+echo "RetroChat server requires Tcl (tclsh). Install the pkgsrc tcl package." >&2
+exit 127

@@ -163,3 +163,76 @@ jobs:
               -Force `
               -ErrorAction SilentlyContinue
           }
+
+  netbsd:
+    name: Protocol — NetBSD 10.1
+    runs-on: ubuntu-24.04
+
+    defaults:
+      run:
+        shell: cpa.sh {0}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Start NetBSD VM
+        uses: cross-platform-actions/action@v1.4.0
+        with:
+          operating_system: netbsd
+          architecture: x86-64
+          version: "10.1"
+
+      - name: Run protocol and relay tests
+        run: |
+          set -eu
+
+          if ! command -v tclsh >/dev/null 2>&1; then
+            sudo pkgin -y install tcl
+          fi
+
+          tclsh tests/protocol.test
+          tclsh server.tcl 17777 >server.log 2>&1 &
+          server_pid=$!
+
+          cleanup() {
+            kill "$server_pid" 2>/dev/null || true
+          }
+
+          trap cleanup EXIT HUP INT TERM
+
+          for attempt in 1 2 3 4 5; do
+            if tclsh tests/relay.test 17777; then
+              exit 0
+            fi
+
+            sleep 1
+          done
+
+          echo "Relay test failed. Server output:"
+          cat server.log
+          exit 1
+
+  netbsd-mac68k-package:
+    name: Build — NetBSD 10.1/mac68k client and server
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Build client and server archives
+        run: make netbsd-mac68k
+
+      - name: Verify archive contents
+        run: |
+          tar -tzf dist/retrochat-client-*-netbsd-10.1-mac68k.tar.gz | grep '/client.tcl$'
+          tar -tzf dist/retrochat-client-*-netbsd-10.1-mac68k.tar.gz | grep '/retrochat-client$'
+          tar -tzf dist/retrochat-server-*-netbsd-10.1-mac68k.tar.gz | grep '/server.tcl$'
+          tar -tzf dist/retrochat-server-*-netbsd-10.1-mac68k.tar.gz | grep '/retrochat-server$'
+
+      - name: Upload NetBSD 10.1/mac68k packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrochat-netbsd-10.1-mac68k
+          path: dist/*.tar.gz

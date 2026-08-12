@@ -20,9 +20,12 @@ proc server::drop {channel} {
     log "client disconnected"
 }
 
-proc server::broadcast {line} {
+proc server::broadcast {line {excludedChannel ""}} {
     variable clients
     foreach channel [array names clients] {
+        if {$channel == $excludedChannel} {
+            continue
+        }
         if {[catch {puts $channel $line; flush $channel}]} {
             drop $channel
         }
@@ -50,7 +53,11 @@ proc server::readable {channel} {
     if {[lsearch -exact {HELLO CHAT FILE_BEGIN FILE_CHUNK FILE_END} $command] < 0} {
         return
     }
-    broadcast $line
+    if {[lsearch -exact {FILE_BEGIN FILE_CHUNK FILE_END} $command] >= 0} {
+        broadcast $line $channel
+    } else {
+        broadcast $line
+    }
 }
 
 proc server::accept {channel address port} {

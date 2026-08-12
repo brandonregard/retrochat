@@ -100,6 +100,11 @@ proc app::readable {} {
         return
     }
 
+    # A modal save dialog runs Tk's event loop. Disable this socket callback
+    # while handling the current record so FILE_CHUNK records cannot be handled
+    # before FILE_BEGIN has finished opening and registering the destination.
+    fileevent $sock readable {}
+
     if {[eof $sock]} {
         disconnect
         show "Server closed the connection." error
@@ -107,14 +112,24 @@ proc app::readable {} {
     }
 
     if {[catch {gets $sock line} count] || $count < 0} {
+        if {$sock != ""} {
+            fileevent $sock readable app::readable
+        }
         return
     }
 
     if {[catch {retrochat::parseRecord $line} parsed]} {
+        if {$sock != ""} {
+            fileevent $sock readable app::readable
+        }
         return
     }
 
     receive [lindex $parsed 0] [lindex $parsed 1]
+
+    if {$sock != ""} {
+        fileevent $sock readable app::readable
+    }
 }
 
 proc app::receive {command fields} {

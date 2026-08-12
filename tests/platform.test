@@ -1,0 +1,8 @@
+# Report the runtime used for a RetroChat compatibility test.
+
+set platformMachine unknown
+if {[info exists tcl_platform(machine)]} {
+    set platformMachine $tcl_platform(machine)
+}
+
+puts "Tcl [info patchlevel] on $tcl_platform(os) $tcl_platform(osVersion) $platformMachine"

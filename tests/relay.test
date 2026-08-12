@@ -34,6 +34,24 @@ proc waitForRecord {channel expected timeoutSeconds} {
     fail "timed out waiting for relay record"
 }
 
+proc assertNoRecord {channel unexpected timeoutSeconds} {
+    set deadline [expr {[clock seconds] + $timeoutSeconds}]
+
+    while {[clock seconds] <= $deadline} {
+        if {[eof $channel]} {
+            fail "server closed connection"
+        }
+
+        set count [gets $channel line]
+
+        if {$count >= 0 && $line == $unexpected} {
+            fail "sender received its own file record"
+        }
+
+        after 25
+    }
+}
+
 if {[catch {socket localhost $port} first]} {
     fail "could not connect first client: $first"
 }
@@ -70,6 +88,17 @@ flush $first
 # The second client may still have its own HELLO echo queued. Ignore records
 # until the expected chat record arrives or the timeout expires.
 waitForRecord $second $chatRecord 5
+
+# File records go only to the other clients. Echoing FILE_BEGIN to its sender
+# opens a save dialog in the sending client and can interrupt the transfer.
+set fileBeginRecord [retrochat::makeRecord FILE_BEGIN \
+    [list transfer-1 sample.bin 3 Tester]]
+
+puts $first $fileBeginRecord
+flush $first
+
+waitForRecord $second $fileBeginRecord 5
+assertNoRecord $first $fileBeginRecord 1
 
 close $first
 close $second
