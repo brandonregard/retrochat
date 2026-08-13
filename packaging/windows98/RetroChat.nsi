@@ -11,7 +11,7 @@ Unicode false
 !endif
 
 Name "RetroChat ${VERSION}"
-OutFile "..\..\dist\RetroChat-${VERSION}-Windows98-Setup.exe"
+OutFile "..\..\dist\RetroChat-${VERSION}-Windows95-Plus-Setup.exe"
 InstallDir "$PROGRAMFILES\RetroChat"
 InstallDirRegKey HKCU "Software\RetroChat" "InstallDir"
 RequestExecutionLevel user
@@ -21,7 +21,7 @@ ShowUninstDetails show
 
 !define MUI_ABORTWARNING
 !define MUI_ICON "..\..\assets\icons\windows\client.ico"
-!define MUI_UNICON "..\..\assets\icons\windows\server.ico"
+!define MUI_UNICON "..\..\assets\icons\windows\client.ico"
 !define MUI_FINISHPAGE_NOAUTOCLOSE
 
 !insertmacro MUI_PAGE_WELCOME
@@ -40,6 +40,8 @@ Section "RetroChat" SEC_RETROCHAT
   File "..\..\server.tcl"
   File "..\..\server-gui.tcl"
   File "README.txt"
+  File "..\..\dist\RetroChat-client.exe"
+  File "..\..\dist\RetroChat-server.exe"
 
   SetOutPath "$INSTDIR\lib"
   File "..\..\lib\protocol.tcl"
@@ -72,10 +74,10 @@ Section "RetroChat" SEC_RETROCHAT
 
 runtime_found:
   CreateDirectory "$SMPROGRAMS\RetroChat"
-  CreateShortCut "$SMPROGRAMS\RetroChat\RetroChat Client.lnk" "$PROGRAMFILES\Tcl\bin\wish80.exe" '"$INSTDIR\client.tcl"' "$INSTDIR\assets\icons\windows\client.ico" 0
-  CreateShortCut "$SMPROGRAMS\RetroChat\RetroChat Server.lnk" "$PROGRAMFILES\Tcl\bin\wish80.exe" '"$INSTDIR\server-gui.tcl" 7777' "$INSTDIR\assets\icons\windows\server.ico" 0
+  CreateShortCut "$SMPROGRAMS\RetroChat\RetroChat Client.lnk" "$INSTDIR\RetroChat-client.exe"
+  CreateShortCut "$SMPROGRAMS\RetroChat\RetroChat Server.lnk" "$INSTDIR\RetroChat-server.exe"
   CreateShortCut "$SMPROGRAMS\RetroChat\Uninstall RetroChat.lnk" "$INSTDIR\Uninstall.exe"
-  CreateShortCut "$DESKTOP\RetroChat Client.lnk" "$PROGRAMFILES\Tcl\bin\wish80.exe" '"$INSTDIR\client.tcl"' "$INSTDIR\assets\icons\windows\client.ico" 0
+  CreateShortCut "$DESKTOP\RetroChat Client.lnk" "$INSTDIR\RetroChat-client.exe"
 
 done:
 SectionEnd

@@ -278,13 +278,18 @@ if {[info exists here]} {
     if {[string compare $tcl_platform(platform) "windows"] == 0} {
         set windowsIconPath [file join $here assets icons windows client.ico]
         if {[file exists $windowsIconPath]} {
-            catch {wm iconbitmap . $windowsIconPath}
+            # On Windows, -default updates both the class icon used by the
+            # taskbar and the small icon drawn in the title bar.
+            if {[catch {wm iconbitmap . -default $windowsIconPath}]} {
+                catch {wm iconbitmap . $windowsIconPath}
+            }
         }
-    }
-    set appIconPath [file join $here assets icons png client client-tray.gif]
-    if {[file exists $appIconPath] &&
-        ![catch {image create photo appIcon -file $appIconPath}]} {
-        catch {wm iconphoto . appIcon}
+    } else {
+        set appIconPath [file join $here assets icons png client client-tray.gif]
+        if {[file exists $appIconPath] &&
+            ![catch {image create photo appIcon -file $appIconPath}]} {
+            catch {wm iconphoto . appIcon}
+        }
     }
 }
 

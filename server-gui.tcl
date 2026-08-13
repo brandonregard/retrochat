@@ -43,7 +43,9 @@ proc serverui::start {} {
     if {[string compare $::tcl_platform(platform) "windows"] == 0} {
         set windowsIconPath [file join $::here assets icons windows server.ico]
         if {[file exists $windowsIconPath]} {
-            catch {wm iconbitmap . $windowsIconPath}
+            if {[catch {wm iconbitmap . -default $windowsIconPath}]} {
+                catch {wm iconbitmap . $windowsIconPath}
+            }
         }
     }
 

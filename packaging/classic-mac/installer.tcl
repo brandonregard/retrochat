@@ -1,4 +1,5 @@
 wm withdraw .
+catch {console hide}
 set retrochatVersion "@VERSION@"
 
 proc showInstalledDialog {installDir} {

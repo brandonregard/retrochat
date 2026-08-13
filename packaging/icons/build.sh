@@ -2,6 +2,8 @@
 set -eu
 
 root=assets/icons
+icon_work=$(mktemp -d /tmp/retrochat-icons.XXXXXX)
+trap 'rm -rf "$icon_work"' EXIT HUP INT TERM
 
 for kind in client server
 do
@@ -42,11 +44,19 @@ do
         "$root/png/$kind/${kind}-512.png" \
         "$root/png/$kind/${kind}-1024.png"
 
-    icotool -c -o "$root/windows/$kind.ico" \
-        "$root/png/$kind/${kind}-16.png" \
-        "$root/png/$kind/${kind}-32.png" \
-        "$root/png/$kind/${kind}-48.png" \
-        "$root/png/$kind/${kind}-256.png"
+    # Tk 8.0 uses the legacy Win32 icon API. Supply paletted 8-bit entries
+    # with explicit 1-bit AND masks for transparent window/taskbar icons.
+    mkdir -p "$icon_work/$kind"
+    for size in 16 32 48
+    do
+        ffmpeg -v error -y -i "$root/png/$kind/${kind}-${size}.png" \
+            -f rawvideo -pix_fmt rgba "$icon_work/$kind/${kind}-${size}.rgba"
+    done
+    tclsh packaging/icons/legacy-ico.tcl \
+        "$icon_work/$kind/${kind}-16.rgba" 16 \
+        "$icon_work/$kind/${kind}-32.rgba" 32 \
+        "$icon_work/$kind/${kind}-48.rgba" 48 \
+        "$root/windows/$kind.ico"
     sips -s format gif "$root/png/$kind/${kind}-24.png" \
         --out "$root/png/$kind/${kind}-tray.gif" >/dev/null
 

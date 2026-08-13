@@ -25,7 +25,7 @@ macbinary decode -n -o "$work/SimpleTk68K" "$stub_68k"
 macbinary decode -n -o "$work/SimpleTkPPC" "$stub_ppc"
 DeRez -only CODE "$work/SimpleTk68K" > "$work/code68k.r"
 
-sh packaging/classic-mac/prepare-wrappers.sh "$work/scripts" >/dev/null
+VERSION="$version" sh packaging/classic-mac/prepare-wrappers.sh "$work/scripts" >/dev/null
 cp "$work/scripts/RetroChat Client.tcl" "$work/client.tcl"
 cp "$work/scripts/RetroChat Server.tcl" "$work/server.tcl"
 sed "s/@VERSION@/$version/g" packaging/classic-mac/installer.tcl |

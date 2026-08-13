@@ -4,7 +4,7 @@ TARGET = netbsd-10.1-mac68k
 TCL805_INSTALLER ?= packaging/windows98/runtime/tcl805.exe
 CLASSIC_MAC_TOOLCHAIN ?= packaging/classic-mac/toolchain/TclTk_8.3.4_FullInstall.bin
 
-.PHONY: all installers icons macos-installer netbsd-mac68k netbsd-mac68k-installer client-netbsd-mac68k server-netbsd-mac68k windows95-installer windows95-installer-iso windows98-test-kit windows98-test-iso windows98-installer windows98-installer-iso classic-mac-wrapper-inputs classic-mac-68k-installer classic-mac-ppc-installer classic-mac-installers classic-mac-fat-installer test clean
+.PHONY: all installers icons macos-installer netbsd-mac68k netbsd-mac68k-installer client-netbsd-mac68k server-netbsd-mac68k windows95-installer windows95-installer-iso windows98-test-kit windows98-test-iso classic-mac-wrapper-inputs classic-mac-68k-installer classic-mac-ppc-installer classic-mac-installers classic-mac-fat-installer test clean
 
 all: netbsd-mac68k
 
@@ -30,21 +30,18 @@ windows98-test-iso: windows98-test-kit
 	rm -f $(DIST_DIR)/retrochat-$(VERSION)-windows98-test.iso
 	hdiutil makehybrid -iso -joliet -o $(DIST_DIR)/retrochat-$(VERSION)-windows98-test.iso $(DIST_DIR)/retrochat-windows98-cd
 
-windows98-installer: icons
+windows95-installer: icons
 	@test -f "$(TCL805_INSTALLER)" || { echo "Set TCL805_INSTALLER to the downloaded tcl805.exe path" >&2; exit 1; }
 	mkdir -p $(DIST_DIR)
+	DIST_DIR=$(DIST_DIR) sh packaging/windows98/build-launchers.sh
 	makensis -DVERSION=$(VERSION) -DTCL805_INSTALLER="$(abspath $(TCL805_INSTALLER))" packaging/windows98/RetroChat.nsi
 
-windows95-installer: windows98-installer
-
-windows95-installer-iso: windows98-installer
-	rm -rf $(DIST_DIR)/retrochat-windows98-installer-cd
-	mkdir -p $(DIST_DIR)/retrochat-windows98-installer-cd
-	cp $(DIST_DIR)/RetroChat-$(VERSION)-Windows98-Setup.exe $(DIST_DIR)/retrochat-windows98-installer-cd/SETUP.EXE
+windows95-installer-iso: windows95-installer
+	rm -rf $(DIST_DIR)/retrochat-windows95-plus-installer-cd
+	mkdir -p $(DIST_DIR)/retrochat-windows95-plus-installer-cd
+	cp $(DIST_DIR)/RetroChat-$(VERSION)-Windows95-Plus-Setup.exe $(DIST_DIR)/retrochat-windows95-plus-installer-cd/SETUP.EXE
 	rm -f $(DIST_DIR)/RetroChat-$(VERSION)-Windows95-Plus-Installer.iso
-	hdiutil makehybrid -iso -joliet -o $(DIST_DIR)/RetroChat-$(VERSION)-Windows95-Plus-Installer.iso $(DIST_DIR)/retrochat-windows98-installer-cd
-
-windows98-installer-iso: windows95-installer-iso
+	hdiutil makehybrid -iso -joliet -o $(DIST_DIR)/RetroChat-$(VERSION)-Windows95-Plus-Installer.iso $(DIST_DIR)/retrochat-windows95-plus-installer-cd
 
 netbsd-mac68k-installer: netbsd-mac68k
 	rm -rf $(DIST_DIR)/retrochat-$(VERSION)-netbsd-10.1-mac68k-installer
