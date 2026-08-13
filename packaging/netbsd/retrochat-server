@@ -1,10 +1,16 @@
 #!/bin/sh
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ -n "${DISPLAY:-}" ] && command -v wish >/dev/null 2>&1; then
+    exec wish "$script_dir/server-gui.tcl" "$@"
+fi
+if [ -n "${DISPLAY:-}" ] && [ -x /usr/pkg/bin/wish ]; then
+    exec /usr/pkg/bin/wish "$script_dir/server-gui.tcl" "$@"
+fi
 if command -v tclsh >/dev/null 2>&1; then
     exec tclsh "$script_dir/server.tcl" "$@"
 fi
 if [ -x /usr/pkg/bin/tclsh ]; then
     exec /usr/pkg/bin/tclsh "$script_dir/server.tcl" "$@"
 fi
-echo "RetroChat server requires Tcl (tclsh). Install the pkgsrc tcl package." >&2
+echo "RetroChat server requires Tcl. Install the pkgsrc tcl package." >&2
 exit 127

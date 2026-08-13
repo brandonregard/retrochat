@@ -1,0 +1,13 @@
+RetroChat for NetBSD 10.1/mac68k
+================================
+
+As root, install Tcl/Tk and extract both packages:
+
+  pkgin install tcl tk
+  cd /usr/local
+  tar xzf /path/to/retrochat-client-0.1.0-netbsd-10.1-mac68k.tar.gz
+  tar xzf /path/to/retrochat-server-0.1.0-netbsd-10.1-mac68k.tar.gz
+
+Run the client package's retrochat-client launcher under X11. Run the server
+package's retrochat-server launcher under X11 for its quit controller, or from
+a console for headless operation. Replace 0.1.0 above with the media version.

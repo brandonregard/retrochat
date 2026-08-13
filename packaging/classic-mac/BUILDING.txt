@@ -1,0 +1,68 @@
+Building native RetroChat applications on Mac OS 7/8/9
+=======================================================
+
+Required environment
+--------------------
+
+* A PowerPC Mac or SheepShaver VM running Mac OS 8.6 through 9.0.4 is the
+  recommended build host.
+* CodeWarrior Pro 5 or 6. Pro 6 is the final release that can emit 68K code.
+* TclTk 8.3.4 Full Installer from this disc. It installs the complete Tcl/Tk
+  source tree, libraries, and CodeWarrior project files.
+
+Initial verification
+--------------------
+
+1. Decode the .bin file with StuffIt Expander and run the installer.
+2. Find the Tcl and Tk CodeWarrior projects in the installed source tree.
+3. Open each project and build its existing 68K and PowerPC targets before
+   changing anything. Run Wish and open RetroChat Client to confirm sockets,
+   menus, and file transfer work with the stock interpreter.
+
+Simplest standalone build: Drag & Drop Tclets
+----------------------------------------------
+
+The installed Tcl/Tk distribution includes Drag & Drop Tclets, specifically
+provided for turning scripts into classic Mac applications.
+
+1. Make a working copy of client.tcl named RetroChat Client.tcl. Keep its lib
+   folder beside it.
+2. Drop RetroChat Client.tcl on Drag & Drop Tclets. Save the resulting
+   application as RetroChat Client.
+3. Make a self-contained server entry script that includes server.tcl, or use
+   the CodeWarrior/resource method below while preserving both files.
+4. Drop the server entry script on Drag & Drop Tclets and save the result as
+   RetroChat Server.
+5. Open both applications in ResEdit. Replace their icon-family resources
+   using the supplied Icons artwork and give them unique RetroChat creator
+   codes.
+6. Test each result before placing it into a release disc image.
+
+This wrapper stores the startup script as a TEXT resource named tclshrc in a
+copy of Wish. It is a standalone classic application and does not ask the user
+to select a .tcl file. Depending on how the installed Tcl/Tk shell was built,
+the Tcl/Tk libraries may still need to be installed; the static CodeWarrior
+method below removes that dependency completely.
+
+Standalone application work
+---------------------------
+
+1. Duplicate the Wish application target twice, naming the copies RetroChat
+   Client and RetroChat Server.
+2. For the client target, arrange for client.tcl to be evaluated at startup.
+   For the server target, evaluate server-gui.tcl at startup and place
+   server.tcl beside it.
+3. Include lib:protocol.tcl and preserve that relative directory structure.
+4. Import the 16, 32, and 48-pixel artwork from the Icons folder into the
+   application resource file as classic small and large icon families.
+5. Set creator signatures unique to RetroChat rather than WIsH.
+6. Build separate 68K and PowerPC targets. Do not enable Carbon-only APIs if
+   System 7 compatibility is required.
+7. Test the 68K build in Basilisk II or Mini vMac and the PowerPC build in
+   SheepShaver. Test chat and binary file transfer in both directions against
+   the macOS 26 server.
+
+The build cannot be completed by modern Xcode: these project files and the
+classic Toolbox port require a classic CodeWarrior environment. This disc
+contains the source side of that toolchain so the remaining work can happen
+inside the emulator without searching for deleted Tcl archives.

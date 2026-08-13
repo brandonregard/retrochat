@@ -20,6 +20,8 @@ ShowInstDetails show
 ShowUninstDetails show
 
 !define MUI_ABORTWARNING
+!define MUI_ICON "..\..\assets\icons\windows\client.ico"
+!define MUI_UNICON "..\..\assets\icons\windows\server.ico"
 !define MUI_FINISHPAGE_NOAUTOCLOSE
 
 !insertmacro MUI_PAGE_WELCOME
@@ -36,6 +38,7 @@ Section "RetroChat" SEC_RETROCHAT
   SetOutPath "$INSTDIR"
   File "..\..\client.tcl"
   File "..\..\server.tcl"
+  File "..\..\server-gui.tcl"
   File "README.txt"
 
   SetOutPath "$INSTDIR\lib"
@@ -45,6 +48,14 @@ Section "RetroChat" SEC_RETROCHAT
   File "..\..\tests\platform.test"
   File "..\..\tests\protocol.test"
   File "..\..\tests\relay.test"
+
+  SetOutPath "$INSTDIR\assets\icons\png\client"
+  File "..\..\assets\icons\png\client\client-tray.gif"
+  SetOutPath "$INSTDIR\assets\icons\png\server"
+  File "..\..\assets\icons\png\server\server-tray.gif"
+  SetOutPath "$INSTDIR\assets\icons\windows"
+  File "..\..\assets\icons\windows\client.ico"
+  File "..\..\assets\icons\windows\server.ico"
 
   WriteRegStr HKCU "Software\RetroChat" "InstallDir" "$INSTDIR"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
@@ -61,10 +72,10 @@ Section "RetroChat" SEC_RETROCHAT
 
 runtime_found:
   CreateDirectory "$SMPROGRAMS\RetroChat"
-  CreateShortCut "$SMPROGRAMS\RetroChat\RetroChat Client.lnk" "$PROGRAMFILES\Tcl\bin\wish80.exe" '"$INSTDIR\client.tcl"' "$PROGRAMFILES\Tcl\bin\wish80.exe" 0
-  CreateShortCut "$SMPROGRAMS\RetroChat\RetroChat Server.lnk" "$PROGRAMFILES\Tcl\bin\tclsh80.exe" '"$INSTDIR\server.tcl" 7777' "$PROGRAMFILES\Tcl\bin\tclsh80.exe" 0
+  CreateShortCut "$SMPROGRAMS\RetroChat\RetroChat Client.lnk" "$PROGRAMFILES\Tcl\bin\wish80.exe" '"$INSTDIR\client.tcl"' "$INSTDIR\assets\icons\windows\client.ico" 0
+  CreateShortCut "$SMPROGRAMS\RetroChat\RetroChat Server.lnk" "$PROGRAMFILES\Tcl\bin\wish80.exe" '"$INSTDIR\server-gui.tcl" 7777' "$INSTDIR\assets\icons\windows\server.ico" 0
   CreateShortCut "$SMPROGRAMS\RetroChat\Uninstall RetroChat.lnk" "$INSTDIR\Uninstall.exe"
-  CreateShortCut "$DESKTOP\RetroChat Client.lnk" "$PROGRAMFILES\Tcl\bin\wish80.exe" '"$INSTDIR\client.tcl"' "$PROGRAMFILES\Tcl\bin\wish80.exe" 0
+  CreateShortCut "$DESKTOP\RetroChat Client.lnk" "$PROGRAMFILES\Tcl\bin\wish80.exe" '"$INSTDIR\client.tcl"' "$INSTDIR\assets\icons\windows\client.ico" 0
 
 done:
 SectionEnd

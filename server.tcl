@@ -6,6 +6,22 @@ source [file join $here lib protocol.tcl]
 namespace eval server {
     variable clients
     variable maxLine 70000
+    variable listener ""
+}
+
+proc server::stop {} {
+    variable clients
+    variable listener
+
+    foreach channel [array names clients] {
+        catch {fileevent $channel readable {}}
+        catch {close $channel}
+    }
+    catch {array unset clients}
+    if {$listener != ""} {
+        catch {close $listener}
+        set listener ""
+    }
 }
 
 proc server::log {message} {
@@ -68,15 +84,25 @@ proc server::accept {channel address port} {
     log "client connected from $address:$port"
 }
 
-set port 7777
-if {[llength $argv] > 0} {
-    set port [lindex $argv 0]
-}
-if {![regexp {^[0-9]+$} $port] || $port < 1 || $port > 65535} {
-    puts stderr "usage: tclsh server.tcl ?port?"
-    exit 2
+proc server::start {{port 7777}} {
+    variable listener
+    if {![regexp {^[0-9]+$} $port] || $port < 1 || $port > 65535} {
+        error "port must be an integer from 1 through 65535"
+    }
+    set listener [socket -server server::accept $port]
+    log "RetroChat server listening on port $port"
 }
 
-socket -server server::accept $port
-server::log "RetroChat server listening on port $port"
-vwait forever
+if {![info exists ::retrochat_embedded_server] &&
+    [file tail [info script]] == [file tail $argv0]} {
+    set port 7777
+    if {[llength $argv] > 0} {
+        set port [lindex $argv 0]
+    }
+    if {[catch {server::start $port} problem]} {
+        puts stderr "usage: tclsh server.tcl ?port?"
+        puts stderr $problem
+        exit 2
+    }
+    vwait forever
+}

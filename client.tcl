@@ -234,22 +234,22 @@ proc app::sendFile {} {
     show "Sent [file tail $path] ($size bytes)." system
 }
 
-# Consistent dark palette using classic Tk options for broad compatibility.
-set uiBackground "#20242b"
-set uiSurface "#292e37"
-set uiField "#15191f"
-set uiForeground "#e6edf3"
-set uiMuted "#9da7b3"
-set uiAccent "#58a6ff"
-set uiSelection "#264f78"
-set uiError "#ff7b72"
+# Neutral gray palette modeled on the Mac OS 9 Platinum and Windows 95
+# system interfaces. These explicit colors keep the UI consistent across
+# classic Tk ports without requiring platform themes.
+set uiBackground "#c8c8c8"
+set uiSurface "#b8b8b8"
+set uiField "#f4f4f4"
+set uiForeground "#101010"
+set uiMuted "#505050"
+set uiAccent "#383838"
+set uiSelection "#707070"
+set uiError "#202020"
 
-# macOS renders classic Tk buttons with light native surfaces, so buttons
-# receive a separate dark-text palette.
-set uiButtonBackground "#d7e3f0"
-set uiButtonForeground "#17202a"
-set uiButtonActive "#8fc7ff"
-set uiButtonDisabled "#626b75"
+set uiButtonBackground "#d8d8d8"
+set uiButtonForeground "#101010"
+set uiButtonActive "#b0b0b0"
+set uiButtonDisabled "#787878"
 
 option add *background $uiBackground
 option add *foreground $uiForeground
@@ -258,7 +258,7 @@ option add *activeForeground $uiForeground
 option add *highlightBackground $uiBackground
 option add *highlightColor $uiAccent
 option add *selectBackground $uiSelection
-option add *selectForeground $uiForeground
+option add *selectForeground "#ffffff"
 option add *insertBackground $uiForeground
 
 option add *Entry.background $uiField
@@ -273,6 +273,20 @@ option add *Button.disabledForeground $uiButtonDisabled
 
 wm title . "RetroChat"
 wm minsize . 640 420
+
+if {[info exists here]} {
+    if {[string compare $tcl_platform(platform) "windows"] == 0} {
+        set windowsIconPath [file join $here assets icons windows client.ico]
+        if {[file exists $windowsIconPath]} {
+            catch {wm iconbitmap . $windowsIconPath}
+        }
+    }
+    set appIconPath [file join $here assets icons png client client-tray.gif]
+    if {[file exists $appIconPath] &&
+        ![catch {image create photo appIcon -file $appIconPath}]} {
+        catch {wm iconphoto . appIcon}
+    }
+}
 
 frame .connection
 
@@ -340,7 +354,7 @@ text .chat \
     -foreground $uiForeground \
     -insertbackground $uiForeground \
     -selectbackground $uiSelection \
-    -selectforeground $uiForeground \
+    -selectforeground "#ffffff" \
     -borderwidth 0 \
     -padx 8 \
     -pady 8

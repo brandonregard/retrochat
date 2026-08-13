@@ -1,0 +1,17 @@
+Create the standalone RetroChat applications
+=============================================
+
+1. Install Tcl/Tk 8.3.4 Full Installer.
+2. Find and open Drag & Drop Tclets in the installed Tcl/Tk folder.
+3. Drag RetroChat Client.tcl onto Drag & Drop Tclets. Save the created
+   application as RetroChat Client.
+4. Drag RetroChat Server.tcl onto Drag & Drop Tclets. Save the created
+   application as RetroChat Server.
+5. Double-click both applications. Neither should ask you to locate a script.
+6. With ResEdit, replace the application icon resources using the supplied
+   Icons artwork. Use creator code RtCl for the client and RtSv for the server.
+7. Copy both finished applications back to the Unix shared folder without
+   compressing them. Their resource forks must be preserved.
+
+For 68K deliverables perform this in Basilisk II using a 68K Wish shell. For
+PowerPC perform it in SheepShaver using the PowerPC Wish shell.

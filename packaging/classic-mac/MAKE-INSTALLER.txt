@@ -1,0 +1,23 @@
+Create the final simple installer
+=================================
+
+Prerequisite: finished RetroChat Client and RetroChat Server applications from
+the wrapping steps, with icons applied and both applications tested.
+
+Use StuffIt Deluxe 3.5.1 for the broadest System 7/8/9 compatibility:
+
+1. Create a folder named RetroChat 0.1.0.
+2. Put RetroChat Client, RetroChat Server, and Read Me inside it.
+3. Open StuffIt Deluxe and create a new archive containing that folder.
+4. Choose the option to make the archive self-extracting for Macintosh.
+5. Name it RetroChat 0.1.0 Installer PPC for the PowerPC build or
+   RetroChat 0.1.0 Installer 68K for the 68K build.
+6. Double-click the resulting installer on a clean emulator. It must ask only
+   for the destination, expand the RetroChat folder, and require no Tcl/Tk
+   installation.
+7. Put the verified self-extracting application on the corresponding final
+   HFS/ISO image.
+
+StuffIt Standard 7.0.3 is included only as a Mac OS 8.6/9 fallback. Do not use
+its extractor stub for the 68K/System 7 release without testing that exact
+system first.

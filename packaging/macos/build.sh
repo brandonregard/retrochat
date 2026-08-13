@@ -27,8 +27,11 @@ make_app() {
     display_name=$5
     agent_key=""
 
-    if [ "$executable" = "tclsh" ]; then
+    if [ "$script" = "server-gui.tcl" ]; then
         agent_key="  <key>LSUIElement</key><true/>"
+        icon_name=server
+    else
+        icon_name=client
     fi
 
     mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources/app/lib"
@@ -52,6 +55,20 @@ make_app() {
     cp -R "$tcl_prefix/lib/tcl9" "$app/Contents/Resources/runtime/lib/"
     cp "$script" "$app/Contents/Resources/app/"
     cp lib/protocol.tcl "$app/Contents/Resources/app/lib/"
+    mkdir -p "$app/Contents/Resources/app/assets/icons/png/$icon_name"
+    cp "assets/icons/png/$icon_name/${icon_name}-tray.gif" \
+        "$app/Contents/Resources/app/assets/icons/png/$icon_name/"
+    cp "assets/icons/macos/$icon_name.icns" \
+        "$app/Contents/Resources/RetroChat.icns"
+    xcrun actool "assets/icons/macos/$icon_name.xcassets" \
+        --compile "$app/Contents/Resources" \
+        --platform macosx \
+        --minimum-deployment-target 26.0 \
+        --app-icon AppIcon \
+        --output-partial-info-plist "$app/Contents/Resources/asset-info.plist"
+    if [ "$script" = "server-gui.tcl" ]; then
+        cp server.tcl "$app/Contents/Resources/app/"
+    fi
 
     cat > "$app/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -63,6 +80,8 @@ make_app() {
   <key>CFBundleExecutable</key><string>launcher</string>
   <key>CFBundleIdentifier</key><string>$bundle_id</string>
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+  <key>CFBundleIconFile</key><string>RetroChat.icns</string>
+  <key>CFBundleIconName</key><string>AppIcon</string>
   <key>CFBundleName</key><string>$display_name</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$version</string>
@@ -74,23 +93,7 @@ ${agent_key}
 </plist>
 EOF
 
-    if [ "$executable" = "tclsh" ]; then
-        cat > "$app/Contents/MacOS/launcher" <<EOF
-#!/bin/sh
-resources="\$(cd "\$(dirname "\$0")/../Resources" && pwd)"
-export TCL_LIBRARY="\$resources/runtime/lib/tcl9.0"
-export TK_LIBRARY="\$resources/runtime/lib/tk9.0"
-export TCLLIBPATH="\$resources/runtime/lib"
-log_dir="\$HOME/Library/Logs"
-log_file="\$log_dir/RetroChat Server.log"
-mkdir -p "\$log_dir"
-"\$resources/runtime/bin/tclsh" "\$resources/app/$script" "\$@" >>"\$log_file" 2>&1 &
-server_pid=\$!
-/usr/bin/osascript -e 'display notification "Listening on port 7777" with title "RetroChat Server"' >/dev/null 2>&1 || true
-wait "\$server_pid"
-EOF
-    else
-        cat > "$app/Contents/MacOS/launcher" <<EOF
+    cat > "$app/Contents/MacOS/launcher" <<EOF
 #!/bin/sh
 resources="\$(cd "\$(dirname "\$0")/../Resources" && pwd)"
 export TCL_LIBRARY="\$resources/runtime/lib/tcl9.0"
@@ -98,7 +101,6 @@ export TK_LIBRARY="\$resources/runtime/lib/tk9.0"
 export TCLLIBPATH="\$resources/runtime/lib"
 exec "\$resources/runtime/bin/$runtime_executable" "\$resources/app/$script" "\$@"
 EOF
-    fi
     chmod 755 "$app/Contents/MacOS/launcher"
 
     for old_tcl_prefix in "$tcl_prefix" "$tcl_real_prefix"
@@ -139,7 +141,7 @@ EOF
 }
 
 make_app "$client_app" wish client.tcl com.retrochat.client RetroChat
-make_app "$server_app" tclsh server.tcl com.retrochat.server "RetroChat Server"
+make_app "$server_app" wish server-gui.tcl com.retrochat.server "RetroChat Server"
 
 ln -s /Applications "$stage/Applications"
 rm -f "$dist_dir/RetroChat-$version-macOS26-arm64.dmg"

@@ -55,7 +55,12 @@ Expected result:
 GUI test
 --------
 
-With the server running, launch two copies of:
+To use the quit-only server controller, launch:
+
+  "C:\Program Files\Tcl\bin\wish80.exe" server-gui.tcl 17777
+
+Tk 8.0 on Windows 95/98 does not provide the newer native system-tray API, so
+the controller is a small window with a Quit button. Then launch two copies of:
 
   "C:\Program Files\Tcl\bin\wish80.exe" client.tcl
 

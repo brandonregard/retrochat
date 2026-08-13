@@ -11,3 +11,7 @@ without current binary packages they may need to be built from pkgsrc.
 Run the client with ./retrochat-client and the server with
 ./retrochat-server 7777. The launchers use tclsh/wish from PATH, then try
 /usr/pkg/bin. These packages do not bundle Tcl/Tk or native machine code.
+
+When the server is launched under X11, it uses a quit-only status controller.
+Tk 8.x does not provide a native system-tray API, so this is a small window.
+With no DISPLAY, the same launcher runs the headless server with tclsh.
