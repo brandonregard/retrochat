@@ -91,14 +91,26 @@ waitForRecord $second $chatRecord 5
 
 # File records go only to the other clients. Echoing FILE_BEGIN to its sender
 # opens a save dialog in the sending client and can interrupt the transfer.
+set batchBeginRecord [retrochat::makeRecord FILE_BATCH_BEGIN \
+    [list batch-1 2 Tester]]
+puts $first $batchBeginRecord
+flush $first
+waitForRecord $second $batchBeginRecord 5
+assertNoRecord $first $batchBeginRecord 1
+
 set fileBeginRecord [retrochat::makeRecord FILE_BEGIN \
-    [list transfer-1 sample.bin 3 Tester]]
+    [list transfer-1 sample.bin 3 Tester batch-1]]
 
 puts $first $fileBeginRecord
 flush $first
 
 waitForRecord $second $fileBeginRecord 5
 assertNoRecord $first $fileBeginRecord 1
+
+set batchEndRecord [retrochat::makeRecord FILE_BATCH_END [list batch-1]]
+puts $first $batchEndRecord
+flush $first
+waitForRecord $second $batchEndRecord 5
 
 close $first
 close $second

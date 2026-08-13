@@ -9,7 +9,6 @@
 static DWORD targetProcess;
 static HICON largeIcon;
 static HICON smallIcon;
-static int windowsUpdated;
 
 static BOOL CALLBACK updateWindow(HWND window, LPARAM parameter) {
     DWORD process;
@@ -20,7 +19,6 @@ static BOOL CALLBACK updateWindow(HWND window, LPARAM parameter) {
             SendMessage(window, WM_SETICON, ICON_BIG, (LPARAM) largeIcon);
         if (smallIcon != NULL)
             SendMessage(window, WM_SETICON, ICON_SMALL, (LPARAM) smallIcon);
-        ++windowsUpdated;
     }
     return TRUE;
 }
@@ -33,7 +31,6 @@ void WINAPI WinMainCRTStartup(void) {
     STARTUPINFO startup;
     PROCESS_INFORMATION process;
     DWORD waitResult;
-    int attempts;
     char *cursor;
     char *slash;
 
@@ -68,15 +65,13 @@ void WINAPI WinMainCRTStartup(void) {
     smallIcon = (HICON) LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(1),
         IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0);
 
-    /* Tk 8 creates hidden helper windows before mapping the real root window.
-       Update every Wish-owned window repeatedly through the startup interval. */
-    for (attempts = 0; attempts < 100; ++attempts) {
-        windowsUpdated = 0;
+    /* Tk creates top-level dialogs throughout the process lifetime. Update
+       every Wish-owned window so later file/About dialogs get our icon too. */
+    for (;;) {
         EnumWindows(updateWindow, 0);
-        waitResult = WaitForSingleObject(process.hProcess, 100);
+        waitResult = WaitForSingleObject(process.hProcess, 250);
         if (waitResult != WAIT_TIMEOUT) break;
     }
-    WaitForSingleObject(process.hProcess, INFINITE);
     CloseHandle(process.hProcess);
     ExitProcess(0);
 }

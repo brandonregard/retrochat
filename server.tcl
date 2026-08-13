@@ -66,10 +66,10 @@ proc server::readable {channel} {
         return
     }
     set command [lindex $parsed 0]
-    if {[lsearch -exact {HELLO CHAT FILE_BEGIN FILE_CHUNK FILE_END} $command] < 0} {
+    if {[lsearch -exact {HELLO CHAT FILE_BATCH_BEGIN FILE_BEGIN FILE_CHUNK FILE_END FILE_BATCH_END} $command] < 0} {
         return
     }
-    if {[lsearch -exact {FILE_BEGIN FILE_CHUNK FILE_END} $command] >= 0} {
+    if {[lsearch -exact {FILE_BATCH_BEGIN FILE_BEGIN FILE_CHUNK FILE_END FILE_BATCH_END} $command] >= 0} {
         broadcast $line $channel
     } else {
         broadcast $line
