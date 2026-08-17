@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-version=${VERSION:-0.1.0}
+version=${VERSION:-0.0.1}
 dist_dir=${DIST_DIR:-dist}
 tcl_prefix=${TCL_PREFIX:-/opt/homebrew/opt/tcl-tk}
 tommath_prefix=${TOMMATH_PREFIX:-/opt/homebrew/opt/libtommath}
@@ -25,10 +25,7 @@ make_app() {
     script=$3
     bundle_id=$4
     display_name=$5
-    agent_key=""
-
     if [ "$script" = "server-gui.tcl" ]; then
-        agent_key="  <key>LSUIElement</key><true/>"
         icon_name=server
     else
         icon_name=client
@@ -58,6 +55,8 @@ make_app() {
     mkdir -p "$app/Contents/Resources/app/assets/icons/png/$icon_name"
     cp "assets/icons/png/$icon_name/${icon_name}-tray.gif" \
         "$app/Contents/Resources/app/assets/icons/png/$icon_name/"
+    cp "assets/icons/png/$icon_name/${icon_name}-128.png" \
+        "$app/Contents/Resources/app/assets/icons/png/$icon_name/"
     cp "assets/icons/macos/$icon_name.icns" \
         "$app/Contents/Resources/RetroChat.icns"
     xcrun actool "assets/icons/macos/$icon_name.xcassets" \
@@ -86,8 +85,8 @@ make_app() {
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$version</string>
   <key>CFBundleVersion</key><string>$version</string>
+  <key>NSHumanReadableCopyright</key><string>Copyright 2026 Brandon Regard</string>
   <key>LSMinimumSystemVersion</key><string>26.0</string>
-${agent_key}
   <key>NSHighResolutionCapable</key><true/>
 </dict>
 </plist>
@@ -144,8 +143,9 @@ make_app "$client_app" wish client.tcl com.retrochat.client RetroChat
 make_app "$server_app" wish server-gui.tcl com.retrochat.server "RetroChat Server"
 
 ln -s /Applications "$stage/Applications"
-rm -f "$dist_dir/RetroChat-$version-macOS26-arm64.dmg"
-hdiutil create -volname "RetroChat $version" -srcfolder "$stage" \
-    -ov -format UDZO "$dist_dir/RetroChat-$version-macOS26-arm64.dmg"
+rm -f "$dist_dir/retrochat-$version-macos-arm64.iso"
+hdiutil makehybrid -hfs -iso -joliet \
+    -default-volume-name "RetroChat $version" \
+    -o "$dist_dir/retrochat-$version-macos-arm64.iso" "$stage"
 
-echo "$dist_dir/RetroChat-$version-macOS26-arm64.dmg"
+echo "$dist_dir/retrochat-$version-macos-arm64.iso"

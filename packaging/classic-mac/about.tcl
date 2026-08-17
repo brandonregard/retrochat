@@ -1,5 +1,6 @@
-# Classic Mac OS application About box. The installer retains RcIb/RcIm in
-# each installed application so this does not depend on external image files.
+# Classic Mac OS application About box. The installer retains the color icon
+# resources in each installed application, so this does not depend on external
+# image files. RcIb/RcIm remain as a fallback for unusually old Tk builds.
 option add *Entry.font {Geneva 9}
 
 proc retrochatAbout {} {
@@ -13,15 +14,25 @@ proc retrochatAbout {} {
     wm title $dialog "About RetroChat"
     wm resizable $dialog 0 0
 
-    image create bitmap retrochatAboutIcon \
-        -data [resource read RcIb 128] \
-        -maskdata [resource read RcIm 128] \
-        -foreground black -background white
+    set iconType RcCg
+    if {[info exists ::retrochatAboutIconResource]} {
+        set iconType $::retrochatAboutIconResource
+    }
+    if {[catch {
+        image create photo retrochatAboutIcon \
+            -data [resource read $iconType 128] -format gif
+    }]} {
+        catch {image delete retrochatAboutIcon}
+        image create bitmap retrochatAboutIcon \
+            -data [resource read RcIb 128] \
+            -maskdata [resource read RcIm 128] \
+            -foreground black -background white
+    }
     label $dialog.icon -image retrochatAboutIcon
     label $dialog.name -text "RetroChat" -font {Geneva 18 bold}
     label $dialog.version -text "Version $::retrochatVersion"
     label $dialog.detail -justify center \
-        -text "Classic Internet chat for Mac OS 7, 8, and 9\n68K and PowerPC"
+        -text "Created by Brandon Regard\n\nClassic Internet chat for Mac OS 7, 8, and 9\n68K and PowerPC"
     button $dialog.ok -text OK -width 8 -default active \
         -command [list destroy $dialog]
 

@@ -1,0 +1,38 @@
+set root [file dirname [file dirname [info script]]]
+source [file join $root server.tcl]
+
+set testFile [file join /tmp "retrochat-history-[pid].dat"]
+set channel [open $testFile w]
+puts $channel [retrochat::makeRecord CHANNEL [list Lobby]]
+puts $channel [retrochat::makeRecord CHANNEL [list Other]]
+puts $channel [retrochat::makeRecord CHANNEL [list SideRoom]]
+puts $channel [retrochat::makeRecord MESSAGE [list Lobby Tester smoke]]
+puts $channel [retrochat::makeRecord MESSAGE [list Lobby Brandon hello]]
+puts $channel [retrochat::makeRecord MESSAGE [list Other Guest hidden]]
+close $channel
+
+set ::server::historyFile $testFile
+server::loadHistory
+
+if {[info exists ::server::rooms(Other)]} {
+    error {legacy Other channel was not removed}
+}
+if {[info exists ::server::rooms(SideRoom)]} {
+    error {relay-test SideRoom channel was not removed}
+}
+if {[llength $::server::history(Lobby)] != 1 ||
+    [lindex [lindex $::server::history(Lobby) 0] 0] != "Brandon"} {
+    error {Tester messages were not removed from Lobby history}
+}
+
+set channel [open $testFile r]
+set saved [read $channel]
+close $channel
+file delete $testFile
+if {[string first Tester $saved] >= 0 ||
+    [string first Other $saved] >= 0 ||
+    [string first SideRoom $saved] >= 0} {
+    error {removed history was written back to disk}
+}
+
+puts "server history tests passed"

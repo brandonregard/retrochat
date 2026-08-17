@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-version=${VERSION:-0.1.0}
+version=${VERSION:-0.0.1}
 dist_dir=${DIST_DIR:-dist}
 stub_68k=${CLASSIC_MAC_68K_STUB:-packaging/classic-mac/runtime/SimpleTk68K.bin}
 stub_ppc=${CLASSIC_MAC_PPC_STUB:-packaging/classic-mac/runtime/SimpleTkPPC.bin}
@@ -26,6 +26,10 @@ macbinary decode -n -o "$work/SimpleTkPPC" "$stub_ppc"
 DeRez -only CODE "$work/SimpleTk68K" > "$work/code68k.r"
 
 VERSION="$version" sh packaging/classic-mac/prepare-wrappers.sh "$work/scripts" >/dev/null
+grep -q 'set ::retrochatClassicMac 1' "$work/scripts/RetroChat Client.tcl" || {
+    echo "Classic client is missing its required filename compatibility flag" >&2
+    exit 1
+}
 cp "$work/scripts/RetroChat Client.tcl" "$work/client.tcl"
 cp "$work/scripts/RetroChat Server.tcl" "$work/server.tcl"
 sed "s/@VERSION@/$version/g" packaging/classic-mac/installer.tcl |
@@ -45,6 +49,14 @@ ffmpeg -v error -i assets/icons/classic-mac/client-32.png \
     -f rawvideo -pix_fmt rgba "$work/client-32.rgba"
 ffmpeg -v error -i assets/icons/classic-mac/client-16.png \
     -f rawvideo -pix_fmt rgba "$work/client-16.rgba"
+ffmpeg -v error -y -i assets/icons/classic-mac/client-48.png \
+    -filter_complex \
+    '[0:v]split[icon][palette_source];[palette_source]palettegen=reserve_transparent=1:transparency_color=ffffff[palette];[icon][palette]paletteuse=alpha_threshold=128' \
+    -frames:v 1 "$work/client-about.gif"
+ffmpeg -v error -y -i assets/icons/classic-mac/server-48.png \
+    -filter_complex \
+    '[0:v]split[icon][palette_source];[palette_source]palettegen=reserve_transparent=1:transparency_color=ffffff[palette];[icon][palette]paletteuse=alpha_threshold=128' \
+    -frames:v 1 "$work/server-about.gif"
 tclsh packaging/icons/classic-icon-rez.tcl \
     "$work/client-32.rgba" "$work/client-16.rgba" "$work/installer-icon.r" \
     "$work/client-icon.xbm" "$work/client-mask.xbm"
@@ -54,13 +66,15 @@ Rez -a -ov \
     -d "README_PATH=\"$work/readme.txt\"" \
     -d "ICON_BITMAP_PATH=\"$work/client-icon.xbm\"" \
     -d "ICON_MASK_PATH=\"$work/client-mask.xbm\"" \
+    -d "CLIENT_COLOR_ICON_PATH=\"$work/client-about.gif\"" \
+    -d "SERVER_COLOR_ICON_PATH=\"$work/server-about.gif\"" \
     -o "$installer" packaging/classic-mac/fat-installer-resources.r
 Rez -a -ov -o "$installer" "$work/installer-icon.r"
 SetFile -t APPL -c RtIn -a B "$installer"
 
-macbinary_output="$dist_dir/RetroChat-$version-Classic-MacOS-7-9-Fat-Installer.bin"
-image_output="$dist_dir/RetroChat-$version-Classic-MacOS-7-9-Fat-Installer.hfv"
-iso_output="$dist_dir/RetroChat-$version-Classic-MacOS-7-9-Fat-Installer.iso"
+macbinary_output="$dist_dir/retrochat-$version-macos-classic-fat.bin"
+image_output="$dist_dir/retrochat-$version-macos-classic-fat.hfv"
+iso_output="$dist_dir/retrochat-$version-macos-classic-fat.iso"
 macbinary encode -n -t 2 -o "$macbinary_output" "$installer"
 
 dd if=/dev/zero of="$image_output" bs=1m count=8 2>/dev/null

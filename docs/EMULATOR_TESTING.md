@@ -401,7 +401,7 @@ host$ cd /Users/brandon/retrochat
 host$ make windows98-test-kit
 ```
 
-Transfer `dist/retrochat-0.1.0-windows98-test-kit.zip` through a read-only UTM
+Transfer `dist/retrochat-0.0.1-windows98-test-kit.zip` through a read-only UTM
 shared directory or CD image, extract it to `C:\RETROCHAT`, and follow its
 `README.txt`. Begin with the official
 [Tcl/Tk 8.0.5 Windows installer](https://www.tcl-lang.org/software/tcltk/8.0.html),
@@ -416,7 +416,7 @@ kit:
 host$ make windows98-test-iso TCL805_INSTALLER="$HOME/Downloads/tcl805.exe"
 ```
 
-Attach `dist/retrochat-0.1.0-windows98-test.iso` to the Windows 98 VM's CD/DVD
+Attach `dist/retrochat-0.0.1-windows98-test.iso` to the Windows 98 VM's CD/DVD
 drive. This avoids depending on Windows 98 ZIP support or Internet access.
 
 ## 8. Classic Mac OS 7/8, 68k
@@ -482,7 +482,7 @@ host$ make windows98-installer-iso \
   TCL805_INSTALLER="$HOME/Downloads/tcl805.exe"
 ```
 
-Attach `dist/RetroChat-0.1.0-Windows98-Installer.iso` to the VM. In Windows 98,
+Attach `dist/retrochat-0.0.1-windows.iso` to the VM. In Windows 98,
 open the CD and double-click `SETUP.EXE`. Accept RetroChat's default directory.
 When the embedded Tcl/Tk installer opens, accept its default
 `C:\Program Files\Tcl` directory; the shortcuts depend on that location. Setup

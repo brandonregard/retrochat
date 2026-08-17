@@ -3,7 +3,7 @@ Unicode false
 !include "MUI2.nsh"
 
 !ifndef VERSION
-!define VERSION "0.1.0"
+!define VERSION "0.0.1"
 !endif
 
 !ifndef TCL805_INSTALLER
@@ -11,7 +11,7 @@ Unicode false
 !endif
 
 Name "RetroChat ${VERSION}"
-OutFile "..\..\dist\RetroChat-${VERSION}-Windows95-Plus-Setup.exe"
+OutFile "..\..\dist\retrochat-${VERSION}-windows-95-plus-setup.exe"
 InstallDir "$PROGRAMFILES\RetroChat"
 InstallDirRegKey HKCU "Software\RetroChat" "InstallDir"
 RequestExecutionLevel user

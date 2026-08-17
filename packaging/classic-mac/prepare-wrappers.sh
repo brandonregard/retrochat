@@ -2,7 +2,8 @@
 set -eu
 
 output=${1:-dist/classic-mac-wrapper-inputs}
-version=${VERSION:-0.1.0}
+version=${VERSION:-0.0.1}
+client_source=${CLIENT_SOURCE:-client.tcl}
 rm -rf "$output"
 mkdir -p "$output/Icons"
 work_client="$output/client.unix"
@@ -12,8 +13,10 @@ work_server="$output/server.unix"
     echo 'catch {console hide}'
     echo 'if {[catch {'
     echo "set ::retrochatVersion \"$version\""
+    echo 'set ::retrochatClassicMac 1'
+    echo 'set ::retrochatAboutIconResource RcCg'
     sed '/^#!/d' lib/protocol.tcl
-    sed '/^#!/d; /^set here /d; /^source \[file join \$here lib protocol\.tcl\]$/d' client.tcl
+    sed '/^#!/d; /^set here /d; /^source \[file join \$here lib protocol\.tcl\]$/d' "$client_source"
     sed '/^#/d' packaging/classic-mac/about.tcl
     echo '} ::retrochat_startup_error]} {'
     echo '    tk_messageBox -icon error -title "RetroChat Startup Error" -message $::retrochat_startup_error'
@@ -24,6 +27,7 @@ work_server="$output/server.unix"
     echo 'catch {console hide}'
     echo 'set ::retrochat_embedded_server 1'
     echo "set ::retrochatVersion \"$version\""
+    echo 'set ::retrochatAboutIconResource RcSg'
     sed '/^#!/d' lib/protocol.tcl
     sed '/^#!/d; /^set here /d; /^source \[file join \$here lib protocol\.tcl\]$/d' server.tcl
     echo 'unset ::retrochat_embedded_server'

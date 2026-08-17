@@ -1,0 +1,93 @@
+set root [file dirname [file dirname [info script]]]
+set channel [open [file join $root client.tcl] r]
+set source [read $channel]
+close $channel
+
+# Load only the namespace and filename helper procedures, before Tk UI setup.
+set first [string first "namespace eval app" $source]
+set last [string first "proc app::updateReceiveProgress" $source]
+if {$first < 0 || $last < 0} {error "could not locate filename helpers"}
+eval [string range $source $first [expr {$last - 1}]]
+set ::retrochatClassicMac 1
+
+if {[app::transferProfile] != [list 32768 8]} {
+    error "Classic transfer profile is not the balanced 256 KiB window"
+}
+
+proc checkName {source suffix extension} {
+    set result [app::fitReceiveFileName $source $suffix]
+    if {[string length $result] > 31} {
+        error "Classic filename exceeds 31 characters: $result"
+    }
+    if {$extension != "" && ![string match "*$extension" $result]} {
+        error "Classic filename lost extension $extension: $result"
+    }
+    if {[string first {:} $result] >= 0} {
+        error "Classic filename contains a colon: $result"
+    }
+}
+
+checkName "This is a very long photograph filename.jpg" "" ".jpg"
+checkName "This is a very long photograph filename.jpeg" " 27" ".jpeg"
+checkName "archive.with.a.long.descriptive.name.tar.gz" " 2" ".gz"
+checkName "invalid:classic:name.png" "" ".png"
+checkName "no-extension-name-that-is-far-too-long" " 999" ""
+
+set extreme [app::fitReceiveFileName \
+    "x.this-extension-is-itself-far-too-long-for-hfs" " 2"]
+if {[string length $extreme] > 31} {
+    error "extreme Classic filename exceeds 31 characters: $extreme"
+}
+
+set temporary [file tail [app::receiveTemporaryPath \
+    [file join destination "This is a very long photograph filename.jpg"] \
+    "1786909851-123456789012345678901234567890"]]
+if {[string length $temporary] > 31} {
+    error "Classic temporary filename exceeds 31 characters: $temporary"
+}
+
+foreach {extension expected} {
+    .JPG  {JPEG ogle}
+    .gif  {GIFf ogle}
+    .png  {PNGf ogle}
+    .mov  {MooV TVOD}
+    .mp4  {MooV TVOD}
+    .mpeg {MPEG TVOD}
+    .mp3  {{MP3 } TVOD}
+    .wav  {WAVE TVOD}
+    .aiff {AIFF TVOD}
+    .bin  {}
+} {
+    set actual [app::classicMetadataForExtension $extension]
+    if {$actual != $expected} {
+        error "metadata for $extension was '$actual', expected '$expected'"
+    }
+}
+
+# Classic QuickTime rejects some otherwise valid JPEGs containing embedded ICC
+# APP2 data. Verify that the compatibility pass removes only that metadata and
+# leaves the scan data intact.
+set jpegPath [file join /tmp "retrochat-classic-[pid].jpg"]
+set jpeg [binary format H* \
+    "ffd8ffe200104943435f50524f46494c45000101ffda00040102deadbeefffd9"]
+set channel [open $jpegPath w]
+fconfigure $channel -translation binary -eofchar {}
+puts -nonewline $channel $jpeg
+close $channel
+if {![app::makeClassicJpegCompatible $jpegPath]} {
+    error "Classic JPEG compatibility pass did not remove ICC metadata"
+}
+set channel [open $jpegPath r]
+fconfigure $channel -translation binary -eofchar {}
+set compatible [read $channel]
+close $channel
+file delete $jpegPath
+if {[string first "ICC_PROFILE\x00" $compatible] >= 0} {
+    error "Classic JPEG compatibility pass retained ICC metadata"
+}
+binary scan $compatible H* compatibleHex
+if {[string first "deadbeefffd9" $compatibleHex] < 0} {
+    error "Classic JPEG compatibility pass changed scan data"
+}
+
+puts "Classic filename tests passed"

@@ -4,6 +4,10 @@ RetroChat is a small chat and file-transfer system written in Tcl/Tk. Its first
 milestone is deliberately simple: one relay server, many desktop clients, chat
 messages, and user-approved file saves.
 
+**Alpha Codex Release. Codename: Save Ferris**
+
+![Ferris Bueller saying "Never had one lesson."](assets/0.0.1-save_ferris.gif)
+
 ## Run it
 
 Requires Tcl/Tk 8.0 or newer.

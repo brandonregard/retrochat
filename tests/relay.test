@@ -31,7 +31,7 @@ proc waitForRecord {channel expected timeoutSeconds} {
         }
     }
 
-    fail "timed out waiting for relay record"
+    fail "timed out waiting for relay record: $expected"
 }
 
 proc assertNoRecord {channel unexpected timeoutSeconds} {
@@ -52,6 +52,27 @@ proc assertNoRecord {channel unexpected timeoutSeconds} {
     }
 }
 
+proc waitForCommand {channel expectedCommand timeoutSeconds} {
+    set deadline [expr {[clock seconds] + $timeoutSeconds}]
+    while {[clock seconds] <= $deadline} {
+        if {[eof $channel]} {fail "server closed connection"}
+        if {[gets $channel line] >= 0} {
+            if {![catch {retrochat::parseRecord $line} parsed] &&
+                [lindex $parsed 0] == $expectedCommand} {
+                return [lindex $parsed 1]
+            }
+        } else {
+            after 25
+        }
+    }
+    fail "timed out waiting for command: $expectedCommand"
+}
+
+proc senderReady {id {chunkSize 16384} {window 8}} {
+    return [retrochat::makeRecord FILE_READY \
+        [list $id 1 $chunkSize $window]]
+}
+
 if {[catch {socket localhost $port} first]} {
     fail "could not connect first client: $first"
 }
@@ -59,6 +80,19 @@ if {[catch {socket localhost $port} first]} {
 if {[catch {socket localhost $port} second]} {
     catch {close $first}
     fail "could not connect second client: $second"
+}
+
+if {[catch {socket localhost $port} third]} {
+    catch {close $first}
+    catch {close $second}
+    fail "could not connect third client: $third"
+}
+
+if {[catch {socket localhost $port} fourth]} {
+    catch {close $first}
+    catch {close $second}
+    catch {close $third}
+    fail "could not connect fourth client: $fourth"
 }
 
 fconfigure $first \
@@ -71,16 +105,30 @@ fconfigure $second \
     -buffering line \
     -translation lf
 
-# Ensure the server has accepted both connections before testing the relay.
-set readyRecord [retrochat::makeRecord HELLO [list RelayTest 1]]
+fconfigure $third -blocking 0 -buffering line -translation lf
+fconfigure $fourth -blocking 0 -buffering line -translation lf
 
-puts $second $readyRecord
-flush $second
+set clientNumber 1
+foreach client [list $first $second $third $fourth] name \
+    [list First Second Third Fourth] {
+    puts $client [retrochat::makeRecord HELLO [list $name 1]]
+    flush $client
+    set selfFields [waitForCommand $client SELF 5]
+    set userId($clientNumber) [lindex $selfFields 0]
+    if {[lindex $selfFields 1] != $name} {fail "wrong SELF name"}
+    incr clientNumber
+}
+set targetUser $userId(2)
 
-waitForRecord $first $readyRecord 5
+set testRoom RelayTestRoom
+set joinTestRoom [retrochat::makeRecord JOIN [list $testRoom]]
+set joinedTestRoom [retrochat::makeRecord JOINED [list $testRoom]]
+puts $third $joinTestRoom
+flush $third
+waitForRecord $third $joinedTestRoom 5
 
 set chatRecord [retrochat::makeRecord CHAT \
-    [list Tester "relay smoke test"]]
+    [list Tester "relay smoke test\n    indented line\n\tkept tab"]]
 
 puts $first $chatRecord
 flush $first
@@ -88,31 +136,209 @@ flush $first
 # The second client may still have its own HELLO echo queued. Ignore records
 # until the expected chat record arrives or the timeout expires.
 waitForRecord $second $chatRecord 5
+assertNoRecord $third $chatRecord 1
 
 # File records go only to the other clients. Echoing FILE_BEGIN to its sender
 # opens a save dialog in the sending client and can interrupt the transfer.
 set batchBeginRecord [retrochat::makeRecord FILE_BATCH_BEGIN \
     [list batch-1 2 Tester]]
-puts $first $batchBeginRecord
+puts $first [retrochat::makeRecord FILE_BATCH_BEGIN \
+    [list batch-1 2 Tester $targetUser]]
 flush $first
 waitForRecord $second $batchBeginRecord 5
+assertNoRecord $third $batchBeginRecord 1
+assertNoRecord $fourth $batchBeginRecord 1
 assertNoRecord $first $batchBeginRecord 1
 
+# Ten bytes include NUL, CR/LF, and high-bit values that expose accidental
+# text-mode conversion on legacy systems.
+set binaryPayload [binary format H* 00ff0d0a80fe4a50454700]
 set fileBeginRecord [retrochat::makeRecord FILE_BEGIN \
-    [list transfer-1 sample.bin 3 Tester batch-1]]
+    [list transfer-1 sample.bin [string length $binaryPayload] Tester batch-1]]
 
-puts $first $fileBeginRecord
+puts $first [retrochat::makeRecord FILE_BEGIN \
+    [list transfer-1 sample.bin [string length $binaryPayload] Tester batch-1 $targetUser]]
 flush $first
 
 waitForRecord $second $fileBeginRecord 5
+assertNoRecord $third $fileBeginRecord 1
+assertNoRecord $fourth $fileBeginRecord 1
 assertNoRecord $first $fileBeginRecord 1
+
+set readyRecord [retrochat::makeRecord FILE_READY \
+    [list transfer-1 1 32768 16]]
+puts $second $readyRecord
+flush $second
+waitForRecord $first [senderReady transfer-1 32768 16] 5
+
+# Relay arbitrary binary data without character-set or newline conversion.
+set checksumState [retrochat::checksumStart]
+set checksumState [retrochat::checksumUpdate $checksumState $binaryPayload]
+set fileChunkRecord [retrochat::makeRecord FILE_CHUNK \
+    [list transfer-1 0 $binaryPayload]]
+set fileEndRecord [retrochat::makeRecord FILE_END \
+    [list transfer-1 [string length $binaryPayload] \
+        [retrochat::checksumFinish $checksumState]]]
+puts $first $fileChunkRecord
+flush $first
+waitForRecord $second $fileChunkRecord 5
+assertNoRecord $third $fileChunkRecord 1
+assertNoRecord $fourth $fileChunkRecord 1
+set ackRecord [retrochat::makeRecord FILE_ACK [list transfer-1 1]]
+waitForRecord $first $ackRecord 5
+puts $first $fileEndRecord
+flush $first
+assertNoRecord $second $fileEndRecord 1
+puts $second $ackRecord
+flush $second
+waitForRecord $first [retrochat::makeRecord FILE_PROGRESS \
+    [list transfer-1 [string length $binaryPayload]]] 5
+waitForRecord $second $fileEndRecord 5
+puts $second [retrochat::makeRecord FILE_RECEIVED [list transfer-1 1]]
+flush $second
+waitForRecord $first [retrochat::makeRecord FILE_DELIVERED \
+    [list transfer-1 1]] 5
+
+# A receiver cancellation is private to that receiver. It must not cancel the
+# sender or any of the other destinations.
+set isolatedBegin [retrochat::makeRecord FILE_BEGIN \
+    [list transfer-2 isolated.bin 1 Tester batch-1]]
+puts $first [retrochat::makeRecord FILE_BEGIN \
+    [list transfer-2 isolated.bin 1 Tester batch-1 $targetUser]]
+flush $first
+waitForRecord $second $isolatedBegin 5
+puts $second [retrochat::makeRecord FILE_READY [list transfer-2 1]]
+flush $second
+waitForRecord $first [senderReady transfer-2] 5
+set receiverCancel [retrochat::makeRecord FILE_CANCEL [list transfer-2]]
+puts $second $receiverCancel
+flush $second
+assertNoRecord $first $receiverCancel 1
+assertNoRecord $third $receiverCancel 1
+assertNoRecord $fourth $receiverCancel 1
+
+set cancelRecord [retrochat::makeRecord FILE_CANCEL [list transfer-2]]
+puts $first $cancelRecord
+flush $first
+waitForRecord $second $cancelRecord 5
+assertNoRecord $third $cancelRecord 1
+assertNoRecord $fourth $cancelRecord 1
+assertNoRecord $first $cancelRecord 1
+
+# Receivers ACK every eight chunks. Verify that one receiver gets the complete
+# eight-chunk window, pauses before chunk nine, and resumes after its own ACK.
+set windowChunk [string repeat x 16384]
+set windowSize [expr {9 * 16384}]
+set windowBegin [retrochat::makeRecord FILE_BEGIN \
+    [list transfer-3 window.bin $windowSize Tester batch-1]]
+puts $first [retrochat::makeRecord FILE_BEGIN \
+    [list transfer-3 window.bin $windowSize Tester batch-1 $targetUser]]
+flush $first
+waitForRecord $second $windowBegin 5
+puts $second [retrochat::makeRecord FILE_READY [list transfer-3 1]]
+flush $second
+waitForRecord $first [senderReady transfer-3] 5
+for {set sequence 0} {$sequence < 9} {incr sequence} {
+    set chunkRecord [retrochat::makeRecord FILE_CHUNK \
+        [list transfer-3 $sequence $windowChunk]]
+    puts $first $chunkRecord
+    flush $first
+    waitForRecord $first [retrochat::makeRecord FILE_ACK \
+        [list transfer-3 [expr {$sequence + 1}]]] 5
+    if {$sequence < 8} {waitForRecord $second $chunkRecord 5}
+}
+assertNoRecord $second [retrochat::makeRecord FILE_CHUNK \
+    [list transfer-3 8 $windowChunk]] 1
+puts $second [retrochat::makeRecord FILE_ACK [list transfer-3 8]]
+flush $second
+waitForRecord $second [retrochat::makeRecord FILE_CHUNK \
+    [list transfer-3 8 $windowChunk]] 5
+puts $second [retrochat::makeRecord FILE_ACK [list transfer-3 9]]
+flush $second
+set windowChecksum [retrochat::checksumStart]
+for {set sequence 0} {$sequence < 9} {incr sequence} {
+    set windowChecksum [retrochat::checksumUpdate $windowChecksum $windowChunk]
+}
+set windowEnd [retrochat::makeRecord FILE_END \
+    [list transfer-3 $windowSize [retrochat::checksumFinish $windowChecksum]]]
+puts $first $windowEnd
+flush $first
+waitForRecord $second $windowEnd 5
+puts $second [retrochat::makeRecord FILE_RECEIVED [list transfer-3 1]]
+flush $second
+waitForRecord $first [retrochat::makeRecord FILE_DELIVERED \
+    [list transfer-3 1]] 5
+
+# A receiver has one managed lane. Do not even announce/open the later file
+# until the active file has been completely received and closed.
+foreach id [list transfer-4 transfer-5] {
+    set begin($id) [retrochat::makeRecord FILE_BEGIN \
+        [list $id "$id.bin" 1 Tester batch-1]]
+    set chunk($id) [retrochat::makeRecord FILE_CHUNK [list $id 0 x]]
+}
+set oneChecksum [retrochat::checksumStart]
+set oneChecksum [retrochat::checksumUpdate $oneChecksum x]
+set oneChecksum [retrochat::checksumFinish $oneChecksum]
+foreach id [list transfer-4 transfer-5] {
+    set ending($id) [retrochat::makeRecord FILE_END [list $id 1 $oneChecksum]]
+}
+
+foreach id [list transfer-4 transfer-5] {
+    puts $first [retrochat::makeRecord FILE_BEGIN \
+        [list $id "$id.bin" 1 Tester batch-1 $targetUser]]
+    flush $first
+    if {$id == "transfer-5"} {break}
+    waitForRecord $second $begin($id) 5
+    puts $second [retrochat::makeRecord FILE_READY [list $id 1]]
+    flush $second
+    waitForRecord $first [senderReady $id] 5
+}
+assertNoRecord $second $begin(transfer-5) 1
+puts $first $chunk(transfer-4)
+flush $first
+waitForRecord $first [retrochat::makeRecord FILE_ACK [list transfer-4 1]] 5
+puts $first $ending(transfer-4)
+flush $first
+waitForRecord $second $chunk(transfer-4) 5
+puts $second [retrochat::makeRecord FILE_ACK [list transfer-4 1]]
+flush $second
+waitForRecord $second $ending(transfer-4) 5
+puts $second [retrochat::makeRecord FILE_RECEIVED [list transfer-4 1]]
+flush $second
+waitForRecord $first [retrochat::makeRecord FILE_DELIVERED \
+    [list transfer-4 1]] 5
+waitForRecord $second $begin(transfer-5) 5
+puts $second [retrochat::makeRecord FILE_READY [list transfer-5 1]]
+flush $second
+waitForRecord $first [senderReady transfer-5] 5
+puts $first $chunk(transfer-5)
+flush $first
+waitForRecord $first [retrochat::makeRecord FILE_ACK [list transfer-5 1]] 5
+puts $first $ending(transfer-5)
+flush $first
+waitForRecord $second $chunk(transfer-5) 5
+puts $second [retrochat::makeRecord FILE_ACK [list transfer-5 1]]
+flush $second
+waitForRecord $second $ending(transfer-5) 5
+puts $second [retrochat::makeRecord FILE_RECEIVED [list transfer-5 1]]
+flush $second
+waitForRecord $first [retrochat::makeRecord FILE_DELIVERED \
+    [list transfer-5 1]] 5
 
 set batchEndRecord [retrochat::makeRecord FILE_BATCH_END [list batch-1]]
 puts $first $batchEndRecord
 flush $first
 waitForRecord $second $batchEndRecord 5
+assertNoRecord $third $batchEndRecord 1
+assertNoRecord $fourth $batchEndRecord 1
+
+# Do not leave the relay test's isolation channel in server history.
+puts $third [retrochat::makeRecord DELETE_CHANNEL [list $testRoom]]
+flush $third
 
 close $first
 close $second
+close $third
+close $fourth
 
 puts "relay test passed"

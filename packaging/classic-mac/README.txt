@@ -3,10 +3,10 @@ RetroChat for Classic Mac OS 7/8/9
 
 The primary release is the hybrid HFS/ISO installer disc:
 
-  RetroChat-0.1.0-Classic-MacOS-7-9-Fat-Installer.iso
+  retrochat-0.0.1-macos-classic-fat.iso
 
 Mount or burn the image, then
-double-click RetroChat 0.1.0 Installer. The installer asks for a destination
+double-click RetroChat 0.0.1 Installer. The installer asks for a destination
 and creates a RetroChat folder containing the client, server, and Read Me.
 
 The Installer, client, and server are fat applications. Each contains both

@@ -1,4 +1,4 @@
-VERSION ?= 0.1.0
+VERSION ?= 0.0.1
 DIST_DIR ?= dist
 TARGET = netbsd-10.1-mac68k
 TCL805_INSTALLER ?= packaging/windows98/runtime/tcl805.exe
@@ -39,9 +39,9 @@ windows95-installer: icons
 windows95-installer-iso: windows95-installer
 	rm -rf $(DIST_DIR)/retrochat-windows95-plus-installer-cd
 	mkdir -p $(DIST_DIR)/retrochat-windows95-plus-installer-cd
-	cp $(DIST_DIR)/RetroChat-$(VERSION)-Windows95-Plus-Setup.exe $(DIST_DIR)/retrochat-windows95-plus-installer-cd/SETUP.EXE
-	rm -f $(DIST_DIR)/RetroChat-$(VERSION)-Windows95-Plus-Installer.iso
-	hdiutil makehybrid -iso -joliet -o $(DIST_DIR)/RetroChat-$(VERSION)-Windows95-Plus-Installer.iso $(DIST_DIR)/retrochat-windows95-plus-installer-cd
+	cp $(DIST_DIR)/retrochat-$(VERSION)-windows-95-plus-setup.exe $(DIST_DIR)/retrochat-windows95-plus-installer-cd/SETUP.EXE
+	rm -f $(DIST_DIR)/retrochat-$(VERSION)-windows.iso
+	hdiutil makehybrid -iso -joliet -o $(DIST_DIR)/retrochat-$(VERSION)-windows.iso $(DIST_DIR)/retrochat-windows95-plus-installer-cd
 
 netbsd-mac68k-installer: netbsd-mac68k
 	rm -rf $(DIST_DIR)/retrochat-$(VERSION)-netbsd-10.1-mac68k-installer
@@ -49,8 +49,8 @@ netbsd-mac68k-installer: netbsd-mac68k
 	cp $(DIST_DIR)/retrochat-client-$(VERSION)-$(TARGET).tar.gz $(DIST_DIR)/retrochat-$(VERSION)-netbsd-10.1-mac68k-installer/
 	cp $(DIST_DIR)/retrochat-server-$(VERSION)-$(TARGET).tar.gz $(DIST_DIR)/retrochat-$(VERSION)-netbsd-10.1-mac68k-installer/
 	cp packaging/netbsd/INSTALL.txt $(DIST_DIR)/retrochat-$(VERSION)-netbsd-10.1-mac68k-installer/
-	rm -f $(DIST_DIR)/RetroChat-$(VERSION)-NetBSD-10.1-mac68k-Installer.iso
-	hdiutil makehybrid -iso -joliet -o $(DIST_DIR)/RetroChat-$(VERSION)-NetBSD-10.1-mac68k-Installer.iso $(DIST_DIR)/retrochat-$(VERSION)-netbsd-10.1-mac68k-installer
+	rm -f $(DIST_DIR)/retrochat-$(VERSION)-netbsd-mac68k.iso
+	hdiutil makehybrid -iso -joliet -o $(DIST_DIR)/retrochat-$(VERSION)-netbsd-mac68k.iso $(DIST_DIR)/retrochat-$(VERSION)-netbsd-10.1-mac68k-installer
 
 classic-mac-68k-installer: icons
 	VERSION=$(VERSION) DIST_DIR=$(DIST_DIR) CLASSIC_MAC_TOOLCHAIN="$(CLASSIC_MAC_TOOLCHAIN)" sh packaging/classic-mac/build.sh 68k
@@ -113,6 +113,8 @@ $(DIST_DIR)/retrochat-server-$(VERSION)-$(TARGET).tar.gz: server.tcl server-gui.
 test:
 	tclsh tests/platform.test
 	tclsh tests/protocol.test
+	tclsh tests/classic-filenames.test
+	tclsh tests/server-history.test
 
 clean:
 	rm -rf $(DIST_DIR)

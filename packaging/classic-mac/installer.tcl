@@ -9,10 +9,16 @@ proc showInstalledDialog {installDir} {
     wm resizable $dialog 0 0
     wm protocol $dialog WM_DELETE_WINDOW [list set ::installedDialogDone 1]
 
-    image create bitmap retrochatDialogIcon \
-        -data [resource read RcIb 128] \
-        -maskdata [resource read RcIm 128] \
-        -foreground black -background white
+    if {[catch {
+        image create photo retrochatDialogIcon \
+            -data [resource read RcCg 128] -format gif
+    }]} {
+        catch {image delete retrochatDialogIcon}
+        image create bitmap retrochatDialogIcon \
+            -data [resource read RcIb 128] \
+            -maskdata [resource read RcIm 128] \
+            -foreground black -background white
+    }
     label $dialog.icon -image retrochatDialogIcon
     label $dialog.message -justify left -anchor w \
         -text "RetroChat was installed in:\n$installDir"

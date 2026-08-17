@@ -7,7 +7,7 @@ case "$arch" in
     *) echo "architecture must be 68k or ppc" >&2; exit 2 ;;
 esac
 
-version=${VERSION:-0.1.0}
+version=${VERSION:-0.0.1}
 dist_dir=${DIST_DIR:-dist}
 toolchain=${CLASSIC_MAC_TOOLCHAIN:-}
 
@@ -18,7 +18,7 @@ fi
 
 stage="$dist_dir/classic-mac-$arch-stage"
 app="$stage/RetroChat"
-image="$dist_dir/RetroChat-$version-Classic-MacOS-7-9-$arch-Development-Kit.iso"
+image="$dist_dir/retrochat-$version-classic-macos-7-9-$arch-development-kit.iso"
 
 rm -rf "$stage"
 mkdir -p "$app/lib" "$app/Icons"
