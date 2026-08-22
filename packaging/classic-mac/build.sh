@@ -7,7 +7,7 @@ case "$arch" in
     *) echo "architecture must be 68k or ppc" >&2; exit 2 ;;
 esac
 
-version=${VERSION:-0.0.1}
+version=${VERSION:-0.0.2}
 dist_dir=${DIST_DIR:-dist}
 toolchain=${CLASSIC_MAC_TOOLCHAIN:-}
 

@@ -3,6 +3,29 @@
 # image files. RcIb/RcIm remain as a fallback for unusually old Tk builds.
 option add *Entry.font {Geneva 9}
 
+proc retrochatClassicColorIcon {widget resourceType} {
+    canvas $widget -width 32 -height 32 -highlightthickness 0 -borderwidth 0
+    set number 0
+    foreach layer [resource read $resourceType 128] {
+        foreach {color bitmap} $layer break
+        set imageName "retrochatColorLayer$widget$number"
+        image create bitmap $imageName -data $bitmap -foreground $color
+        $widget create image 16 16 -image $imageName
+        lappend ::retrochatColorImages($widget) $imageName
+        incr number
+    }
+    bind $widget <Destroy> [list retrochatDeleteColorIcon $widget]
+}
+
+proc retrochatDeleteColorIcon {widget} {
+    if {[info exists ::retrochatColorImages($widget)]} {
+        foreach imageName $::retrochatColorImages($widget) {
+            catch {image delete $imageName}
+        }
+        unset ::retrochatColorImages($widget)
+    }
+}
+
 proc retrochatAbout {} {
     if {[winfo exists .retrochatAbout]} {
         raise .retrochatAbout
@@ -14,21 +37,22 @@ proc retrochatAbout {} {
     wm title $dialog "About RetroChat"
     wm resizable $dialog 0 0
 
-    set iconType RcCg
+    set iconType RcLy
     if {[info exists ::retrochatAboutIconResource]} {
-        set iconType $::retrochatAboutIconResource
+        if {$::retrochatAboutIconResource == "RcSg"} {
+            set iconType RsLy
+        }
     }
     if {[catch {
-        image create photo retrochatAboutIcon \
-            -data [resource read $iconType 128] -format gif
+        retrochatClassicColorIcon $dialog.icon $iconType
     }]} {
-        catch {image delete retrochatAboutIcon}
+        catch {destroy $dialog.icon}
         image create bitmap retrochatAboutIcon \
             -data [resource read RcIb 128] \
             -maskdata [resource read RcIm 128] \
             -foreground black -background white
+        label $dialog.icon -image retrochatAboutIcon
     }
-    label $dialog.icon -image retrochatAboutIcon
     label $dialog.name -text "RetroChat" -font {Geneva 18 bold}
     label $dialog.version -text "Version $::retrochatVersion"
     label $dialog.detail -justify center \

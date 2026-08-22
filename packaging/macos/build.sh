@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-version=${VERSION:-0.0.1}
+version=${VERSION:-0.0.2}
 dist_dir=${DIST_DIR:-dist}
 tcl_prefix=${TCL_PREFIX:-/opt/homebrew/opt/tcl-tk}
 tommath_prefix=${TOMMATH_PREFIX:-/opt/homebrew/opt/libtommath}

@@ -66,7 +66,7 @@ proc serverui::showAbout {} {
     }
     frame $dialog.details
     label $dialog.details.name -text "RetroChat Server" -font TkHeadingFont
-    label $dialog.details.version -text "Version 0.0.1"
+    label $dialog.details.version -text "Version 0.0.2"
     label $dialog.details.author -text "Brandon Regard"
     label $dialog.details.date -text "August 17, 2026"
     button $dialog.details.ok -text "OK" -width 8 -default active \

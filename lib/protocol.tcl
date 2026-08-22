@@ -17,6 +17,29 @@ proc retrochat::hexDecode {value} {
     return [binary format H* $value]
 }
 
+# Protocol records are ASCII lines containing hexadecimal fields. Text fields
+# must first be converted to UTF-8: Tcl 9 strings can contain code points above
+# 255, which cannot be passed directly to "binary scan H*". FILE_CHUNK's third
+# field is the sole exception because it contains arbitrary file bytes.
+proc retrochat::binaryField {command index} {
+    return [expr {$command == "FILE_CHUNK" && $index == 2}]
+}
+
+proc retrochat::encodeField {command index value} {
+    if {![binaryField $command $index]} {
+        set value [encoding convertto utf-8 $value]
+    }
+    return [hexEncode $value]
+}
+
+proc retrochat::decodeField {command index value} {
+    set value [hexDecode $value]
+    if {![binaryField $command $index]} {
+        set value [encoding convertfrom utf-8 $value]
+    }
+    return $value
+}
+
 # Lightweight incremental transfer fingerprint. TCP already protects every
 # byte in transit; this additionally catches application-level truncation or
 # chunk mixups without scanning every byte in interpreted Tcl on a 1990s CPU.
@@ -50,8 +73,10 @@ proc retrochat::checksumFinish {state} {
 
 proc retrochat::makeRecord {command fields} {
     set record $command
+    set index 0
     foreach field $fields {
-        append record " " [hexEncode $field]
+        append record " " [encodeField $command $index $field]
+        incr index
     }
     return $record
 }
@@ -65,7 +90,8 @@ proc retrochat::parseRecord {line} {
     set fields [list]
     set index 1
     while {$index < [llength $words]} {
-        lappend fields [hexDecode [lindex $words $index]]
+        lappend fields [decodeField $command [expr {$index - 1}] \
+            [lindex $words $index]]
         incr index
     }
     return [list $command $fields]

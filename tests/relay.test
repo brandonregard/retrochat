@@ -153,11 +153,12 @@ assertNoRecord $first $batchBeginRecord 1
 # Ten bytes include NUL, CR/LF, and high-bit values that expose accidental
 # text-mode conversion on legacy systems.
 set binaryPayload [binary format H* 00ff0d0a80fe4a50454700]
+set transferName "Photo\u202f2026.bin"
 set fileBeginRecord [retrochat::makeRecord FILE_BEGIN \
-    [list transfer-1 sample.bin [string length $binaryPayload] Tester batch-1]]
+    [list transfer-1 $transferName [string length $binaryPayload] Tester batch-1]]
 
 puts $first [retrochat::makeRecord FILE_BEGIN \
-    [list transfer-1 sample.bin [string length $binaryPayload] Tester batch-1 $targetUser]]
+    [list transfer-1 $transferName [string length $binaryPayload] Tester batch-1 $targetUser]]
 flush $first
 
 waitForRecord $second $fileBeginRecord 5

@@ -1,14 +1,14 @@
-VERSION ?= 0.0.1
+VERSION ?= 0.0.2
 DIST_DIR ?= dist
 TARGET = netbsd-10.1-mac68k
 TCL805_INSTALLER ?= packaging/windows98/runtime/tcl805.exe
 CLASSIC_MAC_TOOLCHAIN ?= packaging/classic-mac/toolchain/TclTk_8.3.4_FullInstall.bin
 
-.PHONY: all installers icons macos-installer netbsd-mac68k netbsd-mac68k-installer client-netbsd-mac68k server-netbsd-mac68k windows95-installer windows95-installer-iso windows98-test-kit windows98-test-iso classic-mac-wrapper-inputs classic-mac-68k-installer classic-mac-ppc-installer classic-mac-installers classic-mac-fat-installer test clean
+.PHONY: all installers icons macos-installer netbsd-mac68k netbsd-mac68k-installer client-netbsd-mac68k server-netbsd-mac68k windows95-installer windows95-installer-iso windows98-test-kit windows98-test-iso classic-mac-wrapper-inputs classic-mac-68k-installer classic-mac-ppc-installer classic-mac-installers test clean
 
 all: netbsd-mac68k
 
-installers: macos-installer windows95-installer-iso netbsd-mac68k-installer classic-mac-fat-installer
+installers: macos-installer windows95-installer-iso netbsd-mac68k-installer classic-mac-installers
 
 icons:
 	sh packaging/icons/build.sh
@@ -53,15 +53,12 @@ netbsd-mac68k-installer: netbsd-mac68k
 	hdiutil makehybrid -iso -joliet -o $(DIST_DIR)/retrochat-$(VERSION)-netbsd-mac68k.iso $(DIST_DIR)/retrochat-$(VERSION)-netbsd-10.1-mac68k-installer
 
 classic-mac-68k-installer: icons
-	VERSION=$(VERSION) DIST_DIR=$(DIST_DIR) CLASSIC_MAC_TOOLCHAIN="$(CLASSIC_MAC_TOOLCHAIN)" sh packaging/classic-mac/build.sh 68k
+	VERSION=$(VERSION) DIST_DIR=$(DIST_DIR) sh packaging/classic-mac/build-68k.sh
 
 classic-mac-ppc-installer: icons
-	VERSION=$(VERSION) DIST_DIR=$(DIST_DIR) CLASSIC_MAC_TOOLCHAIN="$(CLASSIC_MAC_TOOLCHAIN)" sh packaging/classic-mac/build.sh ppc
+	VERSION=$(VERSION) DIST_DIR=$(DIST_DIR) sh packaging/classic-mac/build-ppc.sh
 
 classic-mac-installers: classic-mac-68k-installer classic-mac-ppc-installer
-
-classic-mac-fat-installer:
-	VERSION=$(VERSION) DIST_DIR=$(DIST_DIR) sh packaging/classic-mac/build-fat.sh
 
 classic-mac-wrapper-inputs:
 	sh packaging/classic-mac/prepare-wrappers.sh

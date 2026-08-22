@@ -27,6 +27,22 @@ assertEqual [lindex $parsed 0] CHAT "command"
 assertEqual [lindex [lindex $parsed 1] 0] Alice "first field"
 assertEqual [lindex [lindex $parsed 1] 1] "Hello world" "second field"
 
+# Modern macOS filenames commonly contain Unicode punctuation. These must be
+# UTF-8 encoded for signaling rather than treated as one-byte binary strings.
+set unicodeName "Photo\u202f2026.jpg"
+set parsed [retrochat::parseRecord [retrochat::makeRecord FILE_BEGIN \
+    [list transfer-1 $unicodeName 123 Alice batch-1 user-2]]]
+assertEqual [lindex [lindex $parsed 1] 1] $unicodeName \
+    "Unicode filename round trip"
+
+# Actual file payload bytes remain byte-for-byte binary, including bytes that
+# are not valid UTF-8.
+set binaryChunk [binary format H* 00ff80c328]
+set parsed [retrochat::parseRecord [retrochat::makeRecord FILE_CHUNK \
+    [list transfer-1 0 $binaryChunk]]]
+assertEqual [lindex [lindex $parsed 1] 2] $binaryChunk \
+    "binary chunk round trip"
+
 if {![catch {retrochat::parseRecord "CHAT xyz"}]} {
     puts stderr "FAIL malformed hex accepted"
     exit 1

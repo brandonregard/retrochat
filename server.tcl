@@ -315,8 +315,8 @@ proc server::loadHistory {} {
     variable rooms
     variable history
     variable historyFile
-    catch {array unset rooms}
-    catch {array unset history}
+    foreach key [array names rooms] {unset rooms($key)}
+    foreach key [array names history] {unset history($key)}
     set rooms(Lobby) 1
     set historyChanged 0
     if {![file exists $historyFile]} {return}
@@ -431,10 +431,10 @@ proc server::clearAllData {} {
     }
     # Prevent forgetTransfer from advancing queued work while the cache is
     # being emptied.
-    catch {array unset recipientActive}
-    catch {array unset recipientQueue}
+    foreach key [array names recipientActive] {unset recipientActive($key)}
+    foreach key [array names recipientQueue] {unset recipientQueue($key)}
     foreach id [array names transferSender] {forgetTransfer $id}
-    catch {array unset batchTarget}
+    foreach key [array names batchTarget] {unset batchTarget($key)}
 
     # Remove any orphaned spool left by an interrupted earlier server run.
     set dataDirectory [file dirname $historyFile]
@@ -443,8 +443,8 @@ proc server::clearAllData {} {
         catch {file delete -force $path}
     }
 
-    catch {array unset rooms}
-    catch {array unset history}
+    foreach key [array names rooms] {unset rooms($key)}
+    foreach key [array names history] {unset history($key)}
     set rooms(Lobby) 1
     if {![saveHistory]} {return 0}
 
@@ -469,10 +469,10 @@ proc server::stop {} {
         catch {fileevent $channel readable {}}
         catch {close $channel}
     }
-    catch {array unset clients}
-    catch {array unset clientRooms}
-    catch {array unset clientNames}
-    catch {array unset clientIds}
+    foreach key [array names clients] {unset clients($key)}
+    foreach key [array names clientRooms] {unset clientRooms($key)}
+    foreach key [array names clientNames] {unset clientNames($key)}
+    foreach key [array names clientIds] {unset clientIds($key)}
     if {$listener != ""} {
         catch {close $listener}
         set listener ""
