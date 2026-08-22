@@ -144,7 +144,13 @@ make_app "$server_app" wish server-gui.tcl com.retrochat.server "RetroChat Serve
 
 ln -s /Applications "$stage/Applications"
 rm -f "$dist_dir/retrochat-$version-macos-arm64.iso"
-hdiutil makehybrid -hfs -iso -joliet \
+# Do not add an HFS partition to the modern macOS image. On macOS 26, files
+# read back from an HFS hybrid receive com.apple.FinderInfo attributes. Finder
+# preserves those attributes while installing the app, and strict code-signing
+# validation then rejects the otherwise valid signed bundle. A plain ISO/Joliet
+# image retains the app layout, executable bits, and symlink without attaching
+# signature-breaking metadata.
+hdiutil makehybrid -iso -joliet \
     -default-volume-name "RetroChat $version" \
     -o "$dist_dir/retrochat-$version-macos-arm64.iso" "$stage"
 
