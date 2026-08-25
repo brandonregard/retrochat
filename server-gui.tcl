@@ -33,8 +33,18 @@ set serverUiButton "#d8d8d8"
 set serverUiDisabled "#787878"
 
 # Do not leave gray-to-pixel conversion up to a reversed one-bit X colormap.
-# NetBSD/mac68k monochrome displays get an explicit black-on-white interface.
-if {[winfo depth .] == 1} {
+# NetBSD/mac68k can expose a higher logical X depth over a monochrome
+# framebuffer, so identify that target as well as checking Tk's depth.
+set serverUiMonochrome [expr {[winfo depth .] == 1}]
+if {[info exists ::tcl_platform(os)] &&
+    [string compare $::tcl_platform(os) "NetBSD"] == 0 &&
+    [info exists ::tcl_platform(machine)] &&
+    ([string match "m68k*" $::tcl_platform(machine)] ||
+     [string match "mac68k*" $::tcl_platform(machine)] ||
+     [string match "m680*" $::tcl_platform(machine)])} {
+    set serverUiMonochrome 1
+}
+if {$serverUiMonochrome} {
     set serverUiBackground "#ffffff"
     set serverUiForeground "#000000"
     set serverUiActive "#ffffff"
@@ -54,6 +64,12 @@ option add *Button.foreground $serverUiForeground
 option add *Button.activeBackground $serverUiActive
 option add *Button.activeForeground $serverUiForeground
 option add *Button.disabledForeground $serverUiDisabled
+option add *Entry.background $serverUiBackground
+option add *Text.background $serverUiBackground
+option add *Listbox.background $serverUiBackground
+option add *selectBackground $serverUiHighlight
+option add *selectForeground "#ffffff"
+option add *insertBackground $serverUiForeground
 
 proc serverui::quit {} {
     catch {tk systray destroy}

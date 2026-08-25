@@ -1683,6 +1683,7 @@ set uiForeground "#101010"
 set uiMuted "#505050"
 set uiAccent "#383838"
 set uiSelection "#707070"
+set uiSelectionForeground "#ffffff"
 set uiError "#cc0000"
 
 set uiButtonBackground "#d8d8d8"
@@ -1691,9 +1692,18 @@ set uiButtonActive "#b0b0b0"
 set uiButtonDisabled "#787878"
 
 # A one-bit X server may map intermediate grays through a reversed static
-# colormap.  Use literal black and white on NetBSD/mac68k monochrome displays
-# so the normal application surface is always black text on white.
-if {[winfo depth .] == 1} {
+# colormap. Some NetBSD/mac68k X servers expose a higher logical depth over a
+# monochrome framebuffer, so identify that target as well as checking depth.
+set uiMonochrome [expr {[winfo depth .] == 1}]
+if {[info exists ::tcl_platform(os)] &&
+    [string compare $::tcl_platform(os) "NetBSD"] == 0 &&
+    [info exists ::tcl_platform(machine)] &&
+    ([string match "m68k*" $::tcl_platform(machine)] ||
+     [string match "mac68k*" $::tcl_platform(machine)] ||
+     [string match "m680*" $::tcl_platform(machine)])} {
+    set uiMonochrome 1
+}
+if {$uiMonochrome} {
     set uiBackground "#ffffff"
     set uiSurface "#ffffff"
     set uiField "#ffffff"
@@ -1715,7 +1725,7 @@ option add *activeForeground $uiForeground
 option add *highlightBackground $uiBackground
 option add *highlightColor $uiAccent
 option add *selectBackground $uiSelection
-option add *selectForeground "#ffffff"
+option add *selectForeground $uiSelectionForeground
 option add *insertBackground $uiForeground
 
 option add *Entry.background $uiField
@@ -1835,7 +1845,7 @@ scrollbar .channels.scroll -command {.channels.list yview}
 .channels.list configure -yscrollcommand {.channels.scroll set}
 .channels.list tag configure currentChannel -font channelCurrentFont
 .channels.list tag configure selectedChannel -background $uiSelection \
-    -foreground "#ffffff"
+    -foreground $uiSelectionForeground
 button .channels.new -text "New..." -command app::newChannel \
     -state disabled
 button .channels.delete -text "Delete..." -command app::deleteSelectedChannel \
@@ -1854,7 +1864,7 @@ frame .users
 label .users.title -text "Users in Channel" -anchor w
 listbox .users.list -height 5 -width 18 -exportselection 0 \
     -background $uiField -foreground $uiForeground \
-    -selectbackground $uiSelection -selectforeground "#ffffff"
+    -selectbackground $uiSelection -selectforeground $uiSelectionForeground
 scrollbar .users.scroll -command {.users.list yview}
 .users.list configure -yscrollcommand {.users.scroll set}
 button .users.sendfile \
@@ -1879,7 +1889,7 @@ text .chat \
     -foreground $uiForeground \
     -insertbackground $uiForeground \
     -selectbackground $uiSelection \
-    -selectforeground "#ffffff" \
+    -selectforeground $uiSelectionForeground \
     -borderwidth 0 \
     -padx 8 \
     -pady 8
@@ -1891,7 +1901,7 @@ font create systemMessageFont \
     -slant italic
 
 .chat tag configure system \
-    -foreground "#828282" \
+    -foreground $uiMuted \
     -font systemMessageFont
 
 .chat tag configure error \
@@ -1958,7 +1968,7 @@ text .compose.message \
     -foreground $uiForeground \
     -insertbackground $uiForeground \
     -selectbackground $uiSelection \
-    -selectforeground "#ffffff"
+    -selectforeground $uiSelectionForeground
 
 button .compose.send \
     -text "Send" \
