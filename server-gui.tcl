@@ -5,6 +5,8 @@ source [file join $here server.tcl]
 
 namespace eval serverui {
     variable tray 0
+    variable connectedUserIds ""
+    variable usersRefreshAfter ""
 }
 
 proc serverui::isClassicMac {} {
@@ -23,17 +25,35 @@ proc serverui::isClassicMac {} {
 }
 
 # Match the client and the native gray interfaces of Mac OS 9/Windows 95.
-option add *background "#c8c8c8"
-option add *foreground "#101010"
-option add *activeBackground "#b0b0b0"
-option add *activeForeground "#101010"
-option add *highlightBackground "#c8c8c8"
-option add *highlightColor "#383838"
-option add *Button.background "#d8d8d8"
-option add *Button.foreground "#101010"
-option add *Button.activeBackground "#b0b0b0"
-option add *Button.activeForeground "#101010"
-option add *Button.disabledForeground "#787878"
+set serverUiBackground "#c8c8c8"
+set serverUiForeground "#101010"
+set serverUiActive "#b0b0b0"
+set serverUiHighlight "#383838"
+set serverUiButton "#d8d8d8"
+set serverUiDisabled "#787878"
+
+# Do not leave gray-to-pixel conversion up to a reversed one-bit X colormap.
+# NetBSD/mac68k monochrome displays get an explicit black-on-white interface.
+if {[winfo depth .] == 1} {
+    set serverUiBackground "#ffffff"
+    set serverUiForeground "#000000"
+    set serverUiActive "#ffffff"
+    set serverUiHighlight "#000000"
+    set serverUiButton "#ffffff"
+    set serverUiDisabled "#000000"
+}
+
+option add *background $serverUiBackground
+option add *foreground $serverUiForeground
+option add *activeBackground $serverUiActive
+option add *activeForeground $serverUiForeground
+option add *highlightBackground $serverUiBackground
+option add *highlightColor $serverUiHighlight
+option add *Button.background $serverUiButton
+option add *Button.foreground $serverUiForeground
+option add *Button.activeBackground $serverUiActive
+option add *Button.activeForeground $serverUiForeground
+option add *Button.disabledForeground $serverUiDisabled
 
 proc serverui::quit {} {
     catch {tk systray destroy}
@@ -43,6 +63,151 @@ proc serverui::quit {} {
 
 proc serverui::showMenu {} {
     tk_popup .serverMenu [winfo pointerx .] [winfo pointery .]
+}
+
+proc serverui::formatDuration {seconds} {
+    if {$seconds < 0} {set seconds 0}
+    set days [expr {$seconds / 86400}]
+    set hours [expr {($seconds % 86400) / 3600}]
+    set minutes [expr {($seconds % 3600) / 60}]
+    set secs [expr {$seconds % 60}]
+    if {$days > 0} {return [format "%dd %02d:%02d:%02d" $days $hours $minutes $secs]}
+    return [format "%02d:%02d:%02d" $hours $minutes $secs]
+}
+
+proc serverui::updateDisconnectButton {} {
+    if {![winfo exists .connectedUsers.table.list]} {return}
+    if {[llength [.connectedUsers.table.list curselection]] > 0} {
+        .connectedUsers.buttons.disconnect configure -state normal
+    } else {
+        .connectedUsers.buttons.disconnect configure -state disabled
+    }
+}
+
+proc serverui::refreshConnectedUsers {} {
+    variable connectedUserIds
+    variable usersRefreshAfter
+    if {![winfo exists .connectedUsers]} {return}
+
+    set selectedId ""
+    set selection [.connectedUsers.table.list curselection]
+    if {[llength $selection] > 0} {
+        set index [lindex $selection 0]
+        if {$index < [llength $connectedUserIds]} {
+            set selectedId [lindex $connectedUserIds $index]
+        }
+    }
+
+    .connectedUsers.table.list delete 0 end
+    set connectedUserIds ""
+    set now [clock seconds]
+    set rowIndex 0
+    foreach row [server::connectedUsers] {
+        set id [lindex $row 0]
+        set name [lindex $row 1]
+        set address [lindex $row 2]
+        set port [lindex $row 3]
+        set room [lindex $row 4]
+        set since [lindex $row 5]
+        if {$since > 0} {
+            set connected [clock format $since -format "%Y-%m-%d %H:%M:%S"]
+            set duration [formatDuration [expr {$now - $since}]]
+        } else {
+            set connected "Unknown"
+            set duration "Unknown"
+        }
+        .connectedUsers.table.list insert end [format "%-18.18s %-22.22s %-6.6s %-16.16s %-19.19s %s" \
+            $name $address $port $room $connected $duration]
+        lappend connectedUserIds $id
+        if {$id == $selectedId} {
+            .connectedUsers.table.list selection set $rowIndex
+            .connectedUsers.table.list see $rowIndex
+        }
+        incr rowIndex
+    }
+    if {[llength $connectedUserIds] == 0} {
+        .connectedUsers.empty configure -text "No users are connected."
+    } else {
+        .connectedUsers.empty configure -text ""
+    }
+    updateDisconnectButton
+    catch {after cancel $usersRefreshAfter}
+    set usersRefreshAfter [after 1000 serverui::refreshConnectedUsers]
+}
+
+proc serverui::closeConnectedUsers {} {
+    variable usersRefreshAfter
+    if {$usersRefreshAfter != ""} {catch {after cancel $usersRefreshAfter}}
+    set usersRefreshAfter ""
+    catch {destroy .connectedUsers}
+}
+
+proc serverui::disconnectSelectedUser {} {
+    variable connectedUserIds
+    set selection [.connectedUsers.table.list curselection]
+    if {[llength $selection] == 0} {return}
+    set index [lindex $selection 0]
+    if {$index >= [llength $connectedUserIds]} {return}
+    set id [lindex $connectedUserIds $index]
+    set display "the selected user"
+    foreach candidate [server::connectedUsers] {
+        if {[lindex $candidate 0] == $id} {
+            set display "[lindex $candidate 1] ([lindex $candidate 2])"
+            break
+        }
+    }
+    set answer [tk_messageBox -icon warning -type yesno \
+        -title "Disconnect User" \
+        -message "Are you sure?\n\nDisconnect $display from RetroChat?"]
+    if {$answer != "yes"} {return}
+    server::disconnectUser $id
+    refreshConnectedUsers
+}
+
+proc serverui::showConnectedUsers {} {
+    if {[winfo exists .connectedUsers]} {
+        raise .connectedUsers
+        refreshConnectedUsers
+        return
+    }
+    toplevel .connectedUsers
+    wm title .connectedUsers "Connected Users"
+    wm minsize .connectedUsers 760 280
+    wm protocol .connectedUsers WM_DELETE_WINDOW serverui::closeConnectedUsers
+
+    label .connectedUsers.title -text "Connected Users" -font TkHeadingFont -anchor w
+    frame .connectedUsers.table
+    label .connectedUsers.table.header \
+        -text [format "%-18s %-22s %-6s %-16s %-19s %s" \
+            "Name" "IP Address" "Port" "Channel" "Connected" "Duration"] \
+        -anchor w -font TkFixedFont
+    listbox .connectedUsers.table.list -height 12 -width 100 \
+        -font TkFixedFont -exportselection 0 \
+        -yscrollcommand {.connectedUsers.table.scroll set}
+    scrollbar .connectedUsers.table.scroll -orient vertical \
+        -command {.connectedUsers.table.list yview}
+    label .connectedUsers.empty -text "" -anchor w
+    frame .connectedUsers.buttons
+    button .connectedUsers.buttons.disconnect -text "Disconnect User..." \
+        -state disabled -command serverui::disconnectSelectedUser
+    button .connectedUsers.buttons.refresh -text "Refresh" \
+        -command serverui::refreshConnectedUsers
+    button .connectedUsers.buttons.close -text "Close" \
+        -command serverui::closeConnectedUsers
+
+    pack .connectedUsers.title -side top -fill x -padx 12 -pady 10
+    pack .connectedUsers.table.header -side top -fill x
+    pack .connectedUsers.table.scroll -side right -fill y
+    pack .connectedUsers.table.list -side left -fill both -expand 1
+    pack .connectedUsers.table -side top -fill both -expand 1 -padx 12
+    pack .connectedUsers.empty -side top -fill x -padx 12 -pady 3
+    pack .connectedUsers.buttons.disconnect .connectedUsers.buttons.refresh \
+        .connectedUsers.buttons.close -side left -padx 5 -pady 8
+    pack .connectedUsers.buttons -side bottom
+    bind .connectedUsers.table.list <ButtonRelease-1> serverui::updateDisconnectButton
+    bind .connectedUsers.table.list <KeyRelease> serverui::updateDisconnectButton
+    bind .connectedUsers <Escape> serverui::closeConnectedUsers
+    refreshConnectedUsers
 }
 
 proc serverui::showAbout {} {
@@ -66,13 +231,15 @@ proc serverui::showAbout {} {
     }
     frame $dialog.details
     label $dialog.details.name -text "RetroChat Server" -font TkHeadingFont
-    label $dialog.details.version -text "Version 0.0.2"
+    label $dialog.details.version -text "Version 0.0.3"
     label $dialog.details.author -text "Brandon Regard"
+    label $dialog.details.license -text "MIT License"
     label $dialog.details.date -text "August 17, 2026"
     button $dialog.details.ok -text "OK" -width 8 -default active \
         -command [list destroy $dialog]
     pack $dialog.details.name $dialog.details.version \
-        $dialog.details.author $dialog.details.date -anchor center -pady 2
+        $dialog.details.author $dialog.details.license \
+        $dialog.details.date -anchor center -pady 2
     pack $dialog.details.ok -pady 12
     pack $dialog.details -side left -padx 20 -pady 18
     bind $dialog <Return> [list destroy $dialog]
@@ -111,6 +278,9 @@ proc serverui::installApplicationMenu {} {
     }
     menu .menubar.file -tearoff 0
     .menubar add cascade -label "File" -menu .menubar.file
+    .menubar.file add command -label "Connected Users..." \
+        -command serverui::showConnectedUsers
+    .menubar.file add separator
     .menubar.file add command -label "Clear All History..." \
         -command serverui::clearAllData
     if {[isClassicMac]} {
@@ -156,6 +326,8 @@ proc serverui::start {} {
     }
 
     menu .serverMenu -tearoff 0
+    .serverMenu add command -label "Connected Users..." \
+        -command serverui::showConnectedUsers
     .serverMenu add command -label "Clear All History..." \
         -command serverui::clearAllData
     .serverMenu add separator
@@ -178,10 +350,12 @@ proc serverui::start {} {
         wm title . "RetroChat Server"
         wm resizable . 0 0
         label .status -text "Listening on port $port" -padx 18 -pady 10
+        button .users -text "Connected Users..." \
+            -command serverui::showConnectedUsers -width 16
         button .clear -text "Clear All History..." \
             -command serverui::clearAllData -width 16
         button .quit -text "Quit" -command serverui::quit -width 12
-        pack .status .clear .quit -padx 8 -pady 5
+        pack .status .users .clear .quit -padx 8 -pady 5
         wm protocol . WM_DELETE_WINDOW serverui::quit
     }
 }

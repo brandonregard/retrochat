@@ -5,13 +5,18 @@ This package contains architecture-independent Tcl source and a NetBSD shell
 launcher. It is intended for NetBSD 10.1 on Motorola 680x0 Macintosh systems.
 
 The server requires Tcl 8.0 or newer. The client requires Tcl/Tk 8.0 or newer
-and a working X11 display. Install the pkgsrc "tcl" and "tk" packages; on ports
-without current binary packages they may need to be built from pkgsrc.
+and a working X11 display. The installer ISO bundles the complete Tcl/Tk 8.6
+m68k runtime and installs it automatically when it is not already available.
 
 Run the client with ./retrochat-client and the server with
 ./retrochat-server 7777. The launchers use tclsh/wish from PATH, then try
 /usr/pkg/bin. These packages do not bundle Tcl/Tk or native machine code.
 
+The installer ISO includes INSTALL.SH, which installs both packages and creates
+/usr/local/bin/retrochat-client and /usr/local/bin/retrochat-server launchers.
+No separate package download or pkgsrc build is required.
+
 When the server is launched under X11, it uses a quit-only status controller.
 Tk 8.x does not provide a native system-tray API, so this is a small window.
 With no DISPLAY, the same launcher runs the headless server with tclsh.
+On a one-bit X display, both graphical applications use black text on white.

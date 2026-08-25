@@ -91,3 +91,4 @@ if {[string first "deadbeefffd9" $compatibleHex] < 0} {
 }
 
 puts "Classic filename tests passed"
+exit 0

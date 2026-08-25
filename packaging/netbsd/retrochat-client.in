@@ -1,0 +1,6 @@
+#!/bin/sh
+if [ -z "${DISPLAY:-}" ]; then
+    echo "RetroChat Client requires X11. Start X, open an xterm, and try again." >&2
+    exit 1
+fi
+exec "@WISH@" "@INSTALL_ROOT@/client/client.tcl" "$@"

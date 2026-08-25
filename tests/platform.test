@@ -6,3 +6,4 @@ if {[info exists tcl_platform(machine)]} {
 }
 
 puts "Tcl [info patchlevel] on $tcl_platform(os) $tcl_platform(osVersion) $platformMachine"
+exit 0

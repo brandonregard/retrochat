@@ -1,0 +1,9 @@
+Package: retrochat
+Version: @VERSION@
+Section: net
+Priority: optional
+Architecture: amd64
+Depends: tcltk86 (>= 8.6.18.20)
+Maintainer: Brandon Regard
+Description: RetroChat client and relay server
+ A small cross-platform Tcl/Tk chat and file-transfer application.

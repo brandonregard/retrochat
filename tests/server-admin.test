@@ -1,0 +1,32 @@
+#!/usr/bin/env tclsh
+
+set testDirectory [file dirname [info script]]
+source [file join $testDirectory .. server.tcl]
+
+proc assertEqual {actual expected message} {
+    if {$actual != $expected} {
+        error "$message: expected <$expected>, got <$actual>"
+    }
+}
+
+set ::server::clients(testChannel) [list 192.0.2.10 4321]
+set ::server::clientRooms(testChannel) Lobby
+set ::server::clientNames(testChannel) Alice
+set ::server::clientIds(testChannel) user-test
+set ::server::clientConnectedAt(testChannel) 12345
+
+set users [server::connectedUsers]
+assertEqual [llength $users] 1 "connected user count"
+assertEqual [lindex $users 0] \
+    [list user-test Alice 192.0.2.10 4321 Lobby 12345] \
+    "connected user details"
+assertEqual [server::disconnectUser missing-user] 0 \
+    "unknown user must not be disconnected"
+assertEqual [server::disconnectUser user-test] 1 \
+    "known user should be disconnected"
+assertEqual [llength [server::connectedUsers]] 0 \
+    "disconnected user must disappear"
+assertEqual [array size ::server::clientConnectedAt] 0 \
+    "connection timestamp must be removed"
+
+puts "server admin tests passed"

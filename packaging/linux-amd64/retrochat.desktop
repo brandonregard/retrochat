@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=RetroChat
+Comment=RetroChat client
+Exec=retrochat
+Icon=retrochat
+Terminal=false
+Categories=Network;Chat;

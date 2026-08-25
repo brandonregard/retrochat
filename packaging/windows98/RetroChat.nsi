@@ -3,7 +3,7 @@ Unicode false
 !include "MUI2.nsh"
 
 !ifndef VERSION
-!define VERSION "0.0.2"
+!define VERSION "0.0.3"
 !endif
 
 !ifndef TCL805_INSTALLER
@@ -11,7 +11,7 @@ Unicode false
 !endif
 
 Name "RetroChat ${VERSION}"
-OutFile "..\..\dist\retrochat-${VERSION}-windows-95-plus-setup.exe"
+OutFile "..\..\dist\retrochat-${VERSION}-windows-i386-setup.exe"
 InstallDir "$PROGRAMFILES\RetroChat"
 InstallDirRegKey HKCU "Software\RetroChat" "InstallDir"
 RequestExecutionLevel user
@@ -25,6 +25,7 @@ ShowUninstDetails show
 !define MUI_FINISHPAGE_NOAUTOCLOSE
 
 !insertmacro MUI_PAGE_WELCOME
+!insertmacro MUI_PAGE_LICENSE "..\..\LICENSE"
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -40,6 +41,7 @@ Section "RetroChat" SEC_RETROCHAT
   File "..\..\server.tcl"
   File "..\..\server-gui.tcl"
   File "README.txt"
+  File "/oname=LICENSE.txt" "..\..\LICENSE"
   File "..\..\dist\RetroChat-client.exe"
   File "..\..\dist\RetroChat-server.exe"
 

@@ -1,0 +1,5 @@
+#!/bin/sh
+if [ -n "${DISPLAY:-}" ]; then
+    exec "@WISH@" "@INSTALL_ROOT@/server/server-gui.tcl" "$@"
+fi
+exec "@TCLSH@" "@INSTALL_ROOT@/server/server.tcl" "$@"

@@ -7,7 +7,7 @@ case "$arch" in
     *) echo "architecture must be 68k or ppc" >&2; exit 2 ;;
 esac
 
-version=${VERSION:-0.0.2}
+version=${VERSION:-0.0.3}
 dist_dir=${DIST_DIR:-dist}
 toolchain=${CLASSIC_MAC_TOOLCHAIN:-}
 
@@ -33,6 +33,7 @@ cp assets/icons/classic-mac/server-16.png "$app/Icons/Server 16.png"
 cp assets/icons/classic-mac/server-32.png "$app/Icons/Server 32.png"
 cp assets/icons/classic-mac/server-48.png "$app/Icons/Server 48.png"
 cp packaging/classic-mac/README.txt "$stage/Read Me"
+cp LICENSE "$stage/License"
 cp packaging/classic-mac/BUILDING.txt "$stage/Building RetroChat"
 cp packaging/classic-mac/MAKE-INSTALLER.txt "$stage/Make Installer"
 cp "$toolchain" "$stage/TclTk 8.3.4 Full Installer.bin"

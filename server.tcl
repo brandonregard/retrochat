@@ -8,6 +8,7 @@ namespace eval server {
     variable clientRooms
     variable clientNames
     variable clientIds
+    variable clientConnectedAt
     variable nextClientId 0
     variable rooms
     variable history
@@ -15,6 +16,7 @@ namespace eval server {
     variable transferSender
     variable transferRecipients
     variable transferReady
+    variable transferReadyReason
     variable transferAccepted
     variable transferAck
     variable transferLastAck
@@ -79,6 +81,7 @@ proc server::finishTransferReadiness {id} {
     variable transferSender
     variable transferRecipients
     variable transferReady
+    variable transferReadyReason
     variable transferAccepted
     variable transferAck
     variable transferLastAck
@@ -107,7 +110,19 @@ proc server::finishTransferReadiness {id} {
         if {![info exists transferReady($id,$recipient)]} {return}
     }
     if {!$transferStarted($id)} {
-        sendRecordTo $transferSender($id) FILE_READY [list $id 0]
+        set reason ""
+        foreach recipient $transferRecipients($id) {
+            if {[info exists transferReadyReason($id,$recipient)] &&
+                $transferReadyReason($id,$recipient) != ""} {
+                set reason $transferReadyReason($id,$recipient)
+                break
+            }
+        }
+        if {$reason == ""} {
+            sendRecordTo $transferSender($id) FILE_READY [list $id 0]
+        } else {
+            sendRecordTo $transferSender($id) FILE_READY [list $id 0 $reason]
+        }
         forgetTransfer $id
     }
 }
@@ -233,6 +248,7 @@ proc server::forgetTransfer {id} {
     variable transferSender
     variable transferRecipients
     variable transferReady
+    variable transferReadyReason
     variable transferAccepted
     variable transferAck
     variable transferLastAck
@@ -275,6 +291,9 @@ proc server::forgetTransfer {id} {
     catch {unset transferWindow($id)}
     catch {unset transferBegin($id)}
     foreach key [array names transferReady "$id,*"] {unset transferReady($key)}
+    foreach key [array names transferReadyReason "$id,*"] {
+        unset transferReadyReason($key)
+    }
     foreach key [array names transferAck "$id,*"] {unset transferAck($key)}
     foreach key [array names transferNext "$id,*"] {unset transferNext($key)}
     foreach key [array names transferWaiting "$id,*"] {unset transferWaiting($key)}
@@ -463,6 +482,10 @@ proc server::clearAllData {} {
 
 proc server::stop {} {
     variable clients
+    variable clientRooms
+    variable clientNames
+    variable clientIds
+    variable clientConnectedAt
     variable listener
 
     foreach channel [array names clients] {
@@ -473,6 +496,7 @@ proc server::stop {} {
     foreach key [array names clientRooms] {unset clientRooms($key)}
     foreach key [array names clientNames] {unset clientNames($key)}
     foreach key [array names clientIds] {unset clientIds($key)}
+    foreach key [array names clientConnectedAt] {unset clientConnectedAt($key)}
     if {$listener != ""} {
         catch {close $listener}
         set listener ""
@@ -492,6 +516,7 @@ proc server::drop {channel} {
     variable recipientQueue
     variable clientNames
     variable clientIds
+    variable clientConnectedAt
     set oldRoom ""
     if {[info exists clientRooms($channel)]} {set oldRoom $clientRooms($channel)}
     catch {fileevent $channel readable {}}
@@ -500,6 +525,7 @@ proc server::drop {channel} {
     catch {unset clientRooms($channel)}
     catch {unset clientNames($channel)}
     catch {unset clientIds($channel)}
+    catch {unset clientConnectedAt($channel)}
     foreach id [array names transferSender] {
         if {$transferSender($id) == $channel} {
             forgetTransfer $id
@@ -521,6 +547,51 @@ proc server::drop {channel} {
     catch {unset recipientQueue($channel)}
     if {$oldRoom != ""} {sendUsers $oldRoom}
     log "client disconnected"
+}
+
+# Return immutable IDs and connection details for the local server UI.  This
+# deliberately exposes no socket handles, so a stale UI selection cannot
+# disconnect a newly connected client that happens to reuse a channel name.
+proc server::connectedUsers {} {
+    variable clients
+    variable clientRooms
+    variable clientNames
+    variable clientIds
+    variable clientConnectedAt
+    set result ""
+    foreach channel [array names clients] {
+        if {![info exists clientIds($channel)]} {continue}
+        set address ""
+        set port ""
+        if {[llength $clients($channel)] > 0} {
+            set address [lindex $clients($channel) 0]
+        }
+        if {[llength $clients($channel)] > 1} {
+            set port [lindex $clients($channel) 1]
+        }
+        set name "Guest"
+        if {[info exists clientNames($channel)]} {set name $clientNames($channel)}
+        set room "Lobby"
+        if {[info exists clientRooms($channel)]} {set room $clientRooms($channel)}
+        set connected 0
+        if {[info exists clientConnectedAt($channel)]} {
+            set connected $clientConnectedAt($channel)
+        }
+        lappend result [list $clientIds($channel) $name $address $port $room $connected]
+    }
+    return $result
+}
+
+proc server::disconnectUser {id} {
+    variable clients
+    variable clientIds
+    foreach channel [array names clients] {
+        if {[info exists clientIds($channel)] && $clientIds($channel) == $id} {
+            drop $channel
+            return 1
+        }
+    }
+    return 0
 }
 
 proc server::broadcast {line room {excludedChannel ""}} {
@@ -736,12 +807,17 @@ proc server::readable {channel} {
     if {$command == "FILE_READY" && [llength $fields] >= 2} {
         variable transferRecipients
         variable transferReady
+        variable transferReadyReason
         variable transferChunkSize
         variable transferWindow
         set id [lindex $fields 0]
         if {[info exists transferRecipients($id)] &&
             [lsearch -exact $transferRecipients($id) $channel] >= 0} {
             set transferReady($id,$channel) [expr {[lindex $fields 1] != 0}]
+            set transferReadyReason($id,$channel) ""
+            if {!$transferReady($id,$channel) && [llength $fields] >= 3} {
+                set transferReadyReason($id,$channel) [lindex $fields 2]
+            }
             if {$transferReady($id,$channel) && [llength $fields] >= 4} {
                 set chunkSize [lindex $fields 2]
                 set window [lindex $fields 3]
@@ -929,6 +1005,7 @@ proc server::accept {channel address port} {
     variable clientRooms
     variable clientNames
     variable clientIds
+    variable clientConnectedAt
     variable nextClientId
     fconfigure $channel -blocking 0 -buffering full -buffersize 1048576 \
         -translation lf
@@ -937,6 +1014,7 @@ proc server::accept {channel address port} {
     set clientNames($channel) Guest
     incr nextClientId
     set clientIds($channel) "user-$nextClientId"
+    set clientConnectedAt($channel) [clock seconds]
     fileevent $channel readable [list server::readable $channel]
     log "client connected from $address:$port"
 }

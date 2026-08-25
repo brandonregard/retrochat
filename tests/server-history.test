@@ -36,3 +36,4 @@ if {[string first Tester $saved] >= 0 ||
 }
 
 puts "server history tests passed"
+exit 0

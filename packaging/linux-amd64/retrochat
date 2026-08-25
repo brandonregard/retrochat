@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /opt/tcltk86/bin/wish86 /opt/retrochat/client.tcl "$@"

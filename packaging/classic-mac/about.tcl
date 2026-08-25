@@ -56,7 +56,7 @@ proc retrochatAbout {} {
     label $dialog.name -text "RetroChat" -font {Geneva 18 bold}
     label $dialog.version -text "Version $::retrochatVersion"
     label $dialog.detail -justify center \
-        -text "Created by Brandon Regard\n\nClassic Internet chat for Mac OS 7, 8, and 9\n68K and PowerPC"
+        -text "Created by Brandon Regard\nMIT License\n\nClassic Internet chat for Mac OS 7, 8, and 9\n68K and PowerPC"
     button $dialog.ok -text OK -width 8 -default active \
         -command [list destroy $dialog]
 

@@ -48,3 +48,4 @@ if {![catch {retrochat::parseRecord "CHAT xyz"}]} {
     exit 1
 }
 puts "protocol tests passed"
+exit 0

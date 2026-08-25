@@ -9,6 +9,10 @@ namespace eval app {
     variable nextTransfer 0
     variable incoming
     variable incomingBatch
+    variable incomingBatchCount
+    variable incomingBatchSender
+    variable incomingOffer ""
+    variable incomingOfferTimer ""
     variable incomingName
     variable incomingSize
     variable incomingReceived
@@ -67,6 +71,27 @@ proc app::updateSendProgress {name sent total} {
     }
     .transfer.bar coords progress 1 1 \
         [expr {1 + (($width - 2) * $percent / 100)}] 9
+    update idletasks
+}
+
+proc app::formatByteCount {bytes} {
+    if {$bytes < 1024} {return "$bytes bytes"}
+    if {$bytes < 1048576} {
+        return "[format %.1f [expr {double($bytes) / 1024.0}]] KB"
+    }
+    if {$bytes < 1073741824} {
+        return "[format %.1f [expr {double($bytes) / 1048576.0}]] MB"
+    }
+    return "[format %.2f [expr {double($bytes) / 1073741824.0}]] GB"
+}
+
+proc app::showSendWaiting {name} {
+    variable transferText
+    set transferText "Waiting for recipient: [shortFileName $name]"
+    if {![winfo ismapped .transfer]} {
+        pack .transfer -side top -fill x -padx 4 -pady 2 -before .compose
+    }
+    .transfer.bar coords progress 1 1 1 9
     update idletasks
 }
 
@@ -316,13 +341,15 @@ proc app::showAbout {} {
     }
     frame $dialog.details
     label $dialog.details.name -text "RetroChat Client" -font TkHeadingFont
-    label $dialog.details.version -text "Version 0.0.2"
+    label $dialog.details.version -text "Version 0.0.3"
     label $dialog.details.author -text "Brandon Regard"
+    label $dialog.details.license -text "MIT License"
     label $dialog.details.date -text "August 17, 2026"
     button $dialog.details.ok -text "OK" -width 8 -default active \
         -command [list destroy $dialog]
     pack $dialog.details.name $dialog.details.version \
-        $dialog.details.author $dialog.details.date -anchor center -pady 2
+        $dialog.details.author $dialog.details.license \
+        $dialog.details.date -anchor center -pady 2
     pack $dialog.details.ok -pady 12
     pack $dialog.details -side left -padx 20 -pady 18
     bind $dialog <Return> [list destroy $dialog]
@@ -373,6 +400,171 @@ proc app::showTransferCanceled {} {
     after 1200 app::hideSendProgress
 }
 
+proc app::closeFileOffer {} {
+    variable incomingOffer
+    variable incomingOfferTimer
+    if {$incomingOfferTimer != ""} {
+        catch {after cancel $incomingOfferTimer}
+        set incomingOfferTimer ""
+    }
+    if {[winfo exists .fileOffer]} {destroy .fileOffer}
+    set incomingOffer ""
+}
+
+proc app::beginIncomingFile {fields} {
+    variable incoming
+    variable incomingBatch
+    variable incomingName
+    variable incomingSize
+    variable incomingReceived
+    variable incomingSequence
+    variable incomingAckInterval
+    variable incomingPath
+    variable incomingTemporary
+
+    set id [lindex $fields 0]
+    set name [file tail [lindex $fields 1]]
+    set size [lindex $fields 2]
+    set batch [lindex $fields 4]
+    set path ""
+
+    if {[info exists incomingBatch($batch)] &&
+        $incomingBatch($batch) != "" &&
+        $incomingBatch($batch) != "offered"} {
+        set path [receiveFilePath $incomingBatch($batch) $name]
+    }
+    if {$path == ""} {
+        if {[info exists incomingBatch($batch)] && $incomingBatch($batch) == ""} {
+            sendRecord FILE_READY [list $id 0 declined]
+        } else {
+            sendRecord FILE_READY [list $id 0]
+        }
+        return
+    }
+
+    set temporary [receiveTemporaryPath $path $id]
+    if {[catch {open $temporary w} channel]} {
+        show "Could not save $name: $channel" error
+        sendRecord FILE_READY [list $id 0]
+        return
+    }
+
+    fconfigure $channel -translation binary -eofchar {}
+    set savedName [file tail $path]
+    set incoming($id) $channel
+    set incomingName($id) $savedName
+    set incomingSize($id) $size
+    set incomingReceived($id) 0
+    set incomingSequence($id) 0
+    set incomingPath($id) $path
+    set incomingTemporary($id) $temporary
+    updateReceiveProgress $savedName 0 $size
+    set profile [transferProfile]
+    set incomingAckInterval($id) [lindex $profile 1]
+    sendRecord FILE_READY [list $id 1 [lindex $profile 0] [lindex $profile 1]]
+}
+
+proc app::acceptFileOffer {} {
+    variable incomingOffer
+    variable incomingBatch
+
+    if {$incomingOffer == ""} {return}
+    set fields $incomingOffer
+    set name [file tail [lindex $fields 1]]
+    set sender [lindex $fields 3]
+    set batch [lindex $fields 4]
+    closeFileOffer
+
+    set directory ""
+    if {[llength [info commands tk_chooseDirectory]]} {
+        set directory [tk_chooseDirectory -title "Save files from $sender"]
+    } else {
+        set chosen [tk_getSaveFile -initialfile [fitReceiveFileName $name] \
+            -title "Save files from $sender"]
+        if {$chosen != ""} {set directory [file dirname $chosen]}
+    }
+
+    if {$directory == ""} {
+        set incomingBatch($batch) ""
+        sendRecord FILE_READY [list [lindex $fields 0] 0 declined]
+        show "Declined files from $sender." system
+        return
+    }
+    set incomingBatch($batch) $directory
+    beginIncomingFile $fields
+}
+
+proc app::declineFileOffer {} {
+    variable incomingOffer
+    variable incomingBatch
+
+    if {$incomingOffer == ""} {return}
+    set fields $incomingOffer
+    set id [lindex $fields 0]
+    set sender [lindex $fields 3]
+    set batch [lindex $fields 4]
+    set incomingBatch($batch) ""
+    closeFileOffer
+    sendRecord FILE_READY [list $id 0 declined]
+    show "Declined files from $sender." system
+}
+
+proc app::showFileOffer {fields} {
+    variable incomingOffer
+    variable incomingOfferTimer
+    variable incomingBatchCount
+
+    set incomingOffer $fields
+    set name [file tail [lindex $fields 1]]
+    set size [lindex $fields 2]
+    set sender [lindex $fields 3]
+    set batch [lindex $fields 4]
+    set count 1
+    if {[info exists incomingBatchCount($batch)]} {
+        set count $incomingBatchCount($batch)
+    }
+
+    if {[winfo exists .fileOffer]} {destroy .fileOffer}
+    toplevel .fileOffer
+    wm title .fileOffer "Incoming File"
+    wm resizable .fileOffer 0 0
+    if {[winfo ismapped .]} {wm transient .fileOffer .}
+    wm protocol .fileOffer WM_DELETE_WINDOW app::declineFileOffer
+
+    label .fileOffer.heading -text "Incoming file transfer"
+    label .fileOffer.sender -text "From: $sender" -anchor w
+    label .fileOffer.name -text "File: $name" -anchor w -wraplength 420 \
+        -justify left
+    label .fileOffer.size -text "Size: [formatByteCount $size] ($size bytes)" \
+        -anchor w
+    if {$count > 1} {
+        label .fileOffer.batch -text "This is the first of $count files." \
+            -anchor w
+    } else {
+        label .fileOffer.batch -text "One file will be received." -anchor w
+    }
+    label .fileOffer.question -text "Do you want to proceed?" -anchor w
+    frame .fileOffer.buttons
+    button .fileOffer.buttons.decline -text "Decline" \
+        -command app::declineFileOffer
+    button .fileOffer.buttons.receive -text "Receive..." -default active \
+        -command app::acceptFileOffer
+    pack .fileOffer.heading -side top -anchor w -padx 16 -pady 12
+    pack .fileOffer.sender .fileOffer.name .fileOffer.size \
+        .fileOffer.batch .fileOffer.question -side top -anchor w \
+        -fill x -padx 16 -pady 2
+    pack .fileOffer.buttons.receive .fileOffer.buttons.decline \
+        -side right -padx 4
+    pack .fileOffer.buttons -side bottom -fill x -padx 12 -pady 14
+    bind .fileOffer <Return> {app::acceptFileOffer}
+    bind .fileOffer <Escape> {app::declineFileOffer}
+    focus .fileOffer.buttons.receive
+
+    # No grab or tkwait: chat remains usable on both peers while this offer is
+    # pending. Expire abandoned offers so the relay lane cannot wait forever.
+    set incomingOfferTimer [after 120000 app::declineFileOffer]
+}
+
 proc app::cancelTransfer {} {
     variable outgoingChannel
     variable outgoingPaths
@@ -398,6 +590,35 @@ proc app::cancelTransfer {} {
     set outgoingRetryCount 0
     updateSendFileState
     show "File transfer canceled." system
+    showTransferCanceled
+}
+
+proc app::outgoingOfferDeclined {} {
+    variable outgoingChannel
+    variable outgoingPaths
+    variable outgoingBatch
+    variable outgoingTarget
+    variable outgoingId
+    variable outgoingWaiting
+    variable outgoingAckGeneration
+    variable outgoingCurrentPath
+    variable outgoingRetryCount
+
+    incr outgoingAckGeneration
+    if {$outgoingChannel != ""} {catch {close $outgoingChannel}}
+    set outgoingChannel ""
+    set outgoingPaths ""
+    set outgoingWaiting 0
+    if {$outgoingBatch != ""} {
+        catch {sendRecord FILE_BATCH_END [list $outgoingBatch]}
+    }
+    set outgoingBatch ""
+    set outgoingTarget ""
+    set outgoingId ""
+    set outgoingCurrentPath ""
+    set outgoingRetryCount 0
+    updateSendFileState
+    show "The recipient declined the file transfer." system
     showTransferCanceled
 }
 
@@ -654,16 +875,24 @@ proc app::connect {} {
     set connected 1
     set status "Connected to $host:$port"
 
-    sendRecord HELLO [list $nickname 1]
-    sendRecord LIST_CHANNELS [list]
-    sendRecord JOIN [list $channel]
+    if {![sendRecord HELLO [list $nickname 1]]} {return}
+    if {![sendRecord LIST_CHANNELS [list]]} {return}
+    if {![sendRecord JOIN [list $channel]]} {return}
     show "Connected." system
 
-    .connect configure -state disabled
-    .disconnect configure -state normal
+    .connect configure -text "Disconnect" -state normal
     updateSendFileState
     .channels.new configure -state normal
     .channels.delete configure -state normal
+}
+
+proc app::toggleConnection {} {
+    variable connected
+    if {$connected} {
+        disconnect
+    } else {
+        connect
+    }
 }
 
 proc app::selectedChannel {} {
@@ -723,6 +952,13 @@ proc app::showUsers {} {
         .users.list selection clear 0 end
     }
     updateSendFileState
+}
+
+proc app::outgoingTargetAvailable {} {
+    variable outgoingTarget
+    variable userIds
+    return [expr {$outgoingTarget != "" &&
+        [lsearch -exact $userIds $outgoingTarget] >= 0}]
 }
 
 proc app::selectUser {} {
@@ -851,6 +1087,8 @@ proc app::disconnect {} {
     variable outgoingCurrentPath
     variable outgoingRetryCount
 
+    closeFileOffer
+
     if {$sock != ""} {
         catch {fileevent $sock readable {}}
         catch {close $sock}
@@ -867,8 +1105,7 @@ proc app::disconnect {} {
     set connected 0
     set status "Disconnected"
 
-    .connect configure -state normal
-    .disconnect configure -state disabled
+    .connect configure -text "Connect" -state normal
     .users.sendfile configure -state disabled
     set ::app::userIds ""
     set ::app::userNames ""
@@ -996,69 +1233,33 @@ proc app::receive {command fields} {
     } elseif {$command == "HISTORY_END" && [llength $fields] == 1} {
         show "History loaded for [lindex $fields 0]." system
     } elseif {$command == "ERROR" && [llength $fields] == 1} {
-        show [lindex $fields 0] error
+        set message [lindex $fields 0]
+        # A batch can be rejected before its first FILE_BEGIN when the chosen
+        # peer left or reconnected while the native file picker was open.
+        # Stop the queued send callback as well as reporting the rejection;
+        # otherwise it retries a target the server has already rejected and
+        # can later display a contradictory "Sent" result.
+        if {$message == "Selected user is no longer in this channel" &&
+            $::app::outgoingBatch != ""} {
+            transferFailed $message
+        } else {
+            show $message error
+        }
     } elseif {$command == "FILE_BATCH_BEGIN" && [llength $fields] == 3} {
         set batch [lindex $fields 0]
         set count [lindex $fields 1]
         set sender [lindex $fields 2]
-        if {[llength [info commands tk_chooseDirectory]]} {
-            set incomingBatch($batch) [tk_chooseDirectory \
-                -title "Save $count files from $sender"]
-            if {$incomingBatch($batch) == ""} {
-                show "Declined $count files from $sender." system
-            }
-        } else {
-            # Tcl/Tk 8.0 has no directory chooser. Defer to the first file's
-            # Save dialog, then use that selected folder for the whole batch.
-            set incomingBatch($batch) pending
-        }
+        set incomingBatch($batch) offered
+        set ::app::incomingBatchCount($batch) $count
+        set ::app::incomingBatchSender($batch) $sender
     } elseif {$command == "FILE_BEGIN" && [llength $fields] == 5} {
         set id [lindex $fields 0]
-        set name [file tail [lindex $fields 1]]
-        set size [lindex $fields 2]
-        set sender [lindex $fields 3]
         set batch [lindex $fields 4]
-
-        set path ""
         if {[info exists incomingBatch($batch)] &&
-            $incomingBatch($batch) == "pending"} {
-            set suggestedName [fitReceiveFileName $name]
-            set chosen [tk_getSaveFile -initialfile $suggestedName \
-                -title "Choose folder for files from $sender"]
-            if {$chosen == ""} {
-                set incomingBatch($batch) ""
-                show "Declined files from $sender." system
-            } else {
-                set incomingBatch($batch) [file dirname $chosen]
-            }
-        }
-        if {[info exists incomingBatch($batch)] && $incomingBatch($batch) != ""} {
-            set path [receiveFilePath $incomingBatch($batch) $name]
-        }
-
-        set temporary [receiveTemporaryPath $path $id]
-        if {$path == ""} {
-            set incoming($id) ""
-            sendRecord FILE_READY [list $id 0]
-        } elseif {[catch {open $temporary w} channel]} {
-            set incoming($id) ""
-            show "Could not save $name: $channel" error
-            sendRecord FILE_READY [list $id 0]
+            $incomingBatch($batch) == "offered"} {
+            showFileOffer $fields
         } else {
-            fconfigure $channel -translation binary -eofchar {}
-            set savedName [file tail $path]
-            set incoming($id) $channel
-            set incomingName($id) $savedName
-            set incomingSize($id) $size
-            set incomingReceived($id) 0
-            set incomingSequence($id) 0
-            set incomingPath($id) $path
-            set incomingTemporary($id) $temporary
-            updateReceiveProgress $savedName 0 $size
-            set profile [transferProfile]
-            set incomingAckInterval($id) [lindex $profile 1]
-            sendRecord FILE_READY [list $id 1 \
-                [lindex $profile 0] [lindex $profile 1]]
+            beginIncomingFile $fields
         }
     } elseif {$command == "FILE_CHUNK" && [llength $fields] == 3} {
         set id [lindex $fields 0]
@@ -1105,11 +1306,15 @@ proc app::receive {command fields} {
                 }
                 set outgoingWaiting 0
                 scheduleTransferStep [eventDelay] app::sendFileChunk
+            } elseif {[llength $fields] >= 3 &&
+                [lindex $fields 2] == "declined"} {
+                outgoingOfferDeclined
             } else {
                 catch {close $::app::outgoingChannel}
                 set ::app::outgoingChannel ""
                 set outgoingWaiting 0
-                if {$::app::outgoingRetryCount < 1 &&
+                if {[outgoingTargetAvailable] &&
+                    $::app::outgoingRetryCount < 1 &&
                     $::app::outgoingCurrentPath != ""} {
                     incr ::app::outgoingRetryCount
                     set ::app::outgoingPaths [linsert \
@@ -1161,7 +1366,8 @@ proc app::receive {command fields} {
                 set ::app::outgoingCurrentPath ""
                 set ::app::outgoingRetryCount 0
             } else {
-                if {$::app::outgoingRetryCount < 1 &&
+                if {[outgoingTargetAvailable] &&
+                    $::app::outgoingRetryCount < 1 &&
                     $::app::outgoingCurrentPath != ""} {
                     incr ::app::outgoingRetryCount
                     set ::app::outgoingPaths [linsert \
@@ -1178,6 +1384,10 @@ proc app::receive {command fields} {
         }
     } elseif {$command == "FILE_CANCEL" && [llength $fields] == 1} {
         set id [lindex $fields 0]
+        if {$::app::incomingOffer != "" &&
+            [lindex $::app::incomingOffer 0] == $id} {
+            closeFileOffer
+        }
         if {[info exists incoming($id)]} {
             if {$incoming($id) != ""} {
                 catch {close $incoming($id)}
@@ -1230,6 +1440,8 @@ proc app::receive {command fields} {
     } elseif {$command == "FILE_BATCH_END" && [llength $fields] == 1} {
         set batch [lindex $fields 0]
         catch {unset incomingBatch($batch)}
+        catch {unset ::app::incomingBatchCount($batch)}
+        catch {unset ::app::incomingBatchSender($batch)}
     }
 }
 
@@ -1253,12 +1465,27 @@ proc app::sendFile {} {
     variable outgoingBatch
     variable selectedUserId
     variable outgoingTarget
+    variable userIds
+    variable userNames
 
     if {$selectedUserId == "" || $selectedUserId == $::app::selfUserId} {
         tk_messageBox -icon info -title "Send Files" \
             -message "Select another user in this channel first."
         return
     }
+
+    # Remember both identity and display name before entering the native file
+    # dialog. Its nested event loop can process a USERS update if the selected
+    # peer reconnects while the dialog is open.
+    set chosenTarget $selectedUserId
+    set chosenIndex [lsearch -exact $userIds $chosenTarget]
+    if {$chosenIndex < 0} {
+        set selectedUserId ""
+        showUsers
+        show "Selected user is no longer in this channel." error
+        return
+    }
+    set chosenName [lindex $userNames $chosenIndex]
 
     set paths ""
     if {[catch {tk_getOpenFile -title "Send files" -multiple 1} selected]} {
@@ -1270,13 +1497,33 @@ proc app::sendFile {} {
         return
     }
 
+    # Prefer the same connection. If it reconnected, follow the same unique
+    # nickname to its fresh server-issued id. Never send a known-stale id.
+    if {[lsearch -exact $userIds $chosenTarget] < 0} {
+        set matches ""
+        set index 0
+        foreach name $userNames {
+            if {$name == $chosenName} {lappend matches $index}
+            incr index
+        }
+        if {[llength $matches] == 1} {
+            set chosenTarget [lindex $userIds [lindex $matches 0]]
+            set selectedUserId $chosenTarget
+            showUsers
+        } else {
+            show "Selected user is no longer in this channel." error
+            updateSendFileState
+            return
+        }
+    }
+
     incr nextTransfer
     set outgoingBatch "[clock seconds]-$nextTransfer"
-    set outgoingTarget $selectedUserId
+    set outgoingTarget $chosenTarget
     set ::app::outgoingId ""
     if {![sendRecord FILE_BATCH_BEGIN \
         [list $outgoingBatch [llength $paths] $nickname \
-            $selectedUserId]]} {return}
+            $chosenTarget]]} {return}
     set outgoingPaths $paths
     .users.sendfile configure -state disabled
     .transfer.cancel configure -state normal
@@ -1302,6 +1549,13 @@ proc app::sendNextFile {} {
     variable outgoingTarget
     variable outgoingCurrentPath
     variable outgoingRetryCount
+
+    # A server rejection may cancel the batch while this callback is already
+    # queued by the Tk event loop.
+    if {$outgoingBatch == ""} {
+        updateSendFileState
+        return
+    }
 
     if {[llength $outgoingPaths] == 0} {
         sendRecord FILE_BATCH_END [list $outgoingBatch]
@@ -1350,7 +1604,7 @@ proc app::sendNextFile {} {
         set outgoingChannel ""
         return
     }
-    updateSendProgress $outgoingName 0 $outgoingSize
+    showSendWaiting $outgoingName
 }
 
 proc app::releaseSendWait {generation} {
@@ -1436,6 +1690,24 @@ set uiButtonForeground "#101010"
 set uiButtonActive "#b0b0b0"
 set uiButtonDisabled "#787878"
 
+# A one-bit X server may map intermediate grays through a reversed static
+# colormap.  Use literal black and white on NetBSD/mac68k monochrome displays
+# so the normal application surface is always black text on white.
+if {[winfo depth .] == 1} {
+    set uiBackground "#ffffff"
+    set uiSurface "#ffffff"
+    set uiField "#ffffff"
+    set uiForeground "#000000"
+    set uiMuted "#000000"
+    set uiAccent "#000000"
+    set uiSelection "#000000"
+    set uiError "#000000"
+    set uiButtonBackground "#ffffff"
+    set uiButtonForeground "#000000"
+    set uiButtonActive "#ffffff"
+    set uiButtonDisabled "#000000"
+}
+
 option add *background $uiBackground
 option add *foreground $uiForeground
 option add *activeBackground $uiSurface
@@ -1520,12 +1792,8 @@ entry .connection.nick \
 
 button .connect \
     -text "Connect" \
-    -command app::connect
-
-button .disconnect \
-    -text "Disconnect" \
-    -command app::disconnect \
-    -state disabled
+    -width 10 \
+    -command app::toggleConnection
 
 pack \
     .connection.hostlabel \
@@ -1540,7 +1808,6 @@ pack \
 
 pack \
     .connect \
-    .disconnect \
     -in .connection \
     -side left \
     -padx 4 \

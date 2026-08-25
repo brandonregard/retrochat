@@ -8,12 +8,21 @@ trap 'rm -rf "$icon_work"' EXIT HUP INT TERM
 for kind in client server
 do
     master="$root/source/$kind-master.png"
+    sips -g hasAlpha "$master" | grep -q 'hasAlpha: yes' || {
+        echo "$master must contain an alpha channel" >&2
+        exit 1
+    }
 
     for size in 16 24 32 48 64 128 256 512 1024
     do
         mkdir -p "$root/png/$kind"
         sips -z "$size" "$size" "$master" \
             --out "$root/png/$kind/${kind}-${size}.png" >/dev/null
+        sips -g hasAlpha "$root/png/$kind/${kind}-${size}.png" |
+            grep -q 'hasAlpha: yes' || {
+                echo "generated $kind ${size}px icon lost transparency" >&2
+                exit 1
+            }
     done
 
     mkdir -p "$root/macos/$kind.iconset"
@@ -43,6 +52,10 @@ do
         "$root/png/$kind/${kind}-256.png" \
         "$root/png/$kind/${kind}-512.png" \
         "$root/png/$kind/${kind}-1024.png"
+    test -s "$root/macos/$kind.icns" || {
+        echo "failed to create $kind macOS icon family" >&2
+        exit 1
+    }
 
     # Tk 8.0 uses the legacy Win32 icon API. Supply paletted 8-bit entries
     # with explicit 1-bit AND masks for transparent window/taskbar icons.
@@ -57,6 +70,10 @@ do
         "$icon_work/$kind/${kind}-32.rgba" 32 \
         "$icon_work/$kind/${kind}-48.rgba" 48 \
         "$root/windows/$kind.ico"
+    test -s "$root/windows/$kind.ico" || {
+        echo "failed to create $kind Windows icon family" >&2
+        exit 1
+    }
     sips -s format gif "$root/png/$kind/${kind}-24.png" \
         --out "$root/png/$kind/${kind}-tray.gif" >/dev/null
 

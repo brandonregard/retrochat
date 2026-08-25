@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=RetroChat Server
+Comment=RetroChat relay server
+Exec=retrochat-server
+Icon=retrochat-server
+Terminal=false
+Categories=Network;

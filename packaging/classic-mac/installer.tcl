@@ -169,6 +169,7 @@ proc retrochatInstallerAbout {} {
     label $dialog.name -text "RetroChat Installer" -font {Geneva 18 bold}
     label $dialog.version -text "Version $::retrochatVersion ($::retrochatArchitecture)"
     label $dialog.author -text "Brandon Regard"
+    label $dialog.license -text "MIT License"
     label $dialog.date -text "August 17, 2026"
     label $dialog.detail -justify center \
         -text "Alpha Codex Release\nCodename: Save Ferris\n\nClassic Mac OS 7, 8, and 9"
@@ -178,6 +179,7 @@ proc retrochatInstallerAbout {} {
     pack $dialog.name -padx 24
     pack $dialog.version -pady 2
     pack $dialog.author
+    pack $dialog.license
     pack $dialog.date
     pack $dialog.detail -padx 24 -pady 8
     pack $dialog.ok -pady 10
@@ -237,7 +239,7 @@ proc installRetroChat {} {
             set resources [resource open $target r+]
             resource write -force -file $resources -id 3114 \
                 -name tclshrc TEXT [resource read $scriptType 128]
-            foreach payloadType {RcCl RcSv RcRd} {
+            foreach payloadType {RcCl RcSv RcRd RcLi} {
                 catch {resource delete -file $resources -id 128 $payloadType}
             }
             foreach iconType {ICN# icl4 ics# ics4} {
@@ -255,6 +257,13 @@ proc installRetroChat {} {
         puts -nonewline $readme [resource read RcRd 128]
         close $readme
         file attributes [file join $installDir "Read Me"] \
+            -type TEXT -creator ttxt
+
+        set license [open [file join $installDir "License"] w]
+        fconfigure $license -translation binary
+        puts -nonewline $license [resource read RcLi 128]
+        close $license
+        file attributes [file join $installDir "License"] \
             -type TEXT -creator ttxt
     } problem]} {
         tk_messageBox -icon error -title "RetroChat Installer" \
