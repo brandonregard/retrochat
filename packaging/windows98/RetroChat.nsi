@@ -3,7 +3,7 @@ Unicode false
 !include "MUI2.nsh"
 
 !ifndef VERSION
-!define VERSION "0.0.3"
+!define VERSION "0.0.4"
 !endif
 
 !ifndef TCL805_INSTALLER
@@ -40,7 +40,6 @@ Section "RetroChat" SEC_RETROCHAT
   File "..\..\client.tcl"
   File "..\..\server.tcl"
   File "..\..\server-gui.tcl"
-  File "README.txt"
   File "/oname=LICENSE.txt" "..\..\LICENSE"
   File "..\..\dist\RetroChat-client.exe"
   File "..\..\dist\RetroChat-server.exe"

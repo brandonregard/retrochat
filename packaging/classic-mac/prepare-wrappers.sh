@@ -2,7 +2,7 @@
 set -eu
 
 output=${1:-dist/classic-mac-wrapper-inputs}
-version=${VERSION:-0.0.3}
+version=${VERSION:-0.0.4}
 client_source=${CLIENT_SOURCE:-client.tcl}
 rm -rf "$output"
 mkdir -p "$output/Icons"

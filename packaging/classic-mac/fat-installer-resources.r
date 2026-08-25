@@ -4,9 +4,6 @@
 #ifndef SERVER_SCRIPT_PATH
 #error SERVER_SCRIPT_PATH must name the MacRoman server script
 #endif
-#ifndef README_PATH
-#error README_PATH must name the MacRoman read-me file
-#endif
 #ifndef LICENSE_PATH
 #error LICENSE_PATH must name the MacRoman license file
 #endif
@@ -25,7 +22,6 @@
 
 read 'RcCl' (128, "RetroChat Client Script", purgeable) CLIENT_SCRIPT_PATH;
 read 'RcSv' (128, "RetroChat Server Script", purgeable) SERVER_SCRIPT_PATH;
-read 'RcRd' (128, "RetroChat Read Me", purgeable) README_PATH;
 read 'RcLi' (128, "RetroChat MIT License", purgeable) LICENSE_PATH;
 read 'RcIb' (128, "RetroChat Dialog Icon", purgeable) ICON_BITMAP_PATH;
 read 'RcIm' (128, "RetroChat Dialog Icon Mask", purgeable) ICON_MASK_PATH;

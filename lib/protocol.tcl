@@ -25,9 +25,26 @@ proc retrochat::binaryField {command index} {
     return [expr {$command == "FILE_CHUNK" && $index == 2}]
 }
 
+# Tcl 8.0 predates the "encoding" command and represents strings as bytes.
+# Preserve those bytes verbatim on legacy systems. Tcl 8.1 and newer use the
+# UTF-8 conversion needed for Unicode-capable clients.
+proc retrochat::textToWire {value} {
+    if {[llength [info commands encoding]] == 0} {
+        return $value
+    }
+    return [encoding convertto utf-8 $value]
+}
+
+proc retrochat::textFromWire {value} {
+    if {[llength [info commands encoding]] == 0} {
+        return $value
+    }
+    return [encoding convertfrom utf-8 $value]
+}
+
 proc retrochat::encodeField {command index value} {
     if {![binaryField $command $index]} {
-        set value [encoding convertto utf-8 $value]
+        set value [textToWire $value]
     }
     return [hexEncode $value]
 }
@@ -35,7 +52,7 @@ proc retrochat::encodeField {command index value} {
 proc retrochat::decodeField {command index value} {
     set value [hexDecode $value]
     if {![binaryField $command $index]} {
-        set value [encoding convertfrom utf-8 $value]
+        set value [textFromWire $value]
     }
     return $value
 }

@@ -239,7 +239,7 @@ proc installRetroChat {} {
             set resources [resource open $target r+]
             resource write -force -file $resources -id 3114 \
                 -name tclshrc TEXT [resource read $scriptType 128]
-            foreach payloadType {RcCl RcSv RcRd RcLi} {
+            foreach payloadType {RcCl RcSv RcLi} {
                 catch {resource delete -file $resources -id 128 $payloadType}
             }
             foreach iconType {ICN# icl4 ics# ics4} {
@@ -251,13 +251,6 @@ proc installRetroChat {} {
 
             file attributes $target -type APPL -creator $creator
         }
-
-        set readme [open [file join $installDir "Read Me"] w]
-        fconfigure $readme -translation binary
-        puts -nonewline $readme [resource read RcRd 128]
-        close $readme
-        file attributes [file join $installDir "Read Me"] \
-            -type TEXT -creator ttxt
 
         set license [open [file join $installDir "License"] w]
         fconfigure $license -translation binary

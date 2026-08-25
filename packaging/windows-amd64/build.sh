@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-version=${VERSION:-0.0.3}
+version=${VERSION:-0.0.4}
 dist_dir=${DIST_DIR:-dist}
 runtime_archive=${WINDOWS_AMD64_RUNTIME:-packaging/windows-amd64/runtime/tcltk86-win10-amd64.tgz}
 cc=${MINGW_AMD64_CC:-x86_64-w64-mingw32-gcc}
@@ -32,5 +32,4 @@ do
         -o "$dist_dir/RetroChat-amd64-$kind.exe"
 done
 
-VERSION="$version" DIST_DIR="$dist_dir" sh packaging/windows/build-msi.sh amd64
 file "$dist_dir/RetroChat-amd64-client.exe" "$dist_dir/RetroChat-amd64-server.exe"

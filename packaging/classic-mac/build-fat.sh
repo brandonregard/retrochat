@@ -7,14 +7,14 @@ case "$arch" in
     *) echo "architecture must be 68k or ppc" >&2; exit 2 ;;
 esac
 
-version=${VERSION:-0.0.3}
+version=${VERSION:-0.0.4}
 dist_dir=${DIST_DIR:-dist}
 stub_68k=${CLASSIC_MAC_68K_STUB:-packaging/classic-mac/runtime/SimpleTk68K.bin}
 stub_ppc=${CLASSIC_MAC_PPC_STUB:-packaging/classic-mac/runtime/SimpleTkPPC.bin}
 cfm_68k=${CLASSIC_MAC_CFM_68K:-packaging/classic-mac/runtime/CFM-68K-Runtime-Enabler.bin}
 runtime_68k=${CLASSIC_MAC_68K_RUNTIME:-packaging/classic-mac/runtime/mactk8.0.3.sea.hqx}
 
-for tool in DeRez Rez SetFile GetFileInfo macbinary hformat hmount humount hcopy hls iconv ffmpeg tclsh mkisofs
+for tool in DeRez Rez SetFile GetFileInfo macbinary hformat hmount humount hcopy hls iconv ffmpeg tclsh
 do
     command -v "$tool" >/dev/null 2>&1 || {
         echo "classic Mac installer requires $tool" >&2
@@ -68,9 +68,6 @@ cp "$work/scripts/RetroChat Server.tcl" "$work/server.tcl"
 sed -e "s/@VERSION@/$version/g" -e "s/@ARCH@/$arch/g" packaging/classic-mac/installer.tcl |
     iconv -f UTF-8 -t MACINTOSH | LC_ALL=C tr '\n' '\r' \
     > "$work/installer.tcl"
-sed "s/@VERSION@/$version/g" packaging/classic-mac/INSTALLER-README.txt |
-    iconv -f UTF-8 -t MACINTOSH | LC_ALL=C tr '\n' '\r' \
-    > "$work/readme.txt"
 iconv -f UTF-8 -t MACINTOSH LICENSE | LC_ALL=C tr '\n' '\r' \
     > "$work/license.txt"
 
@@ -102,7 +99,6 @@ tclsh packaging/icons/classic-icon-rez.tcl \
 Rez -a -ov \
     -d "CLIENT_SCRIPT_PATH=\"$work/client.tcl\"" \
     -d "SERVER_SCRIPT_PATH=\"$work/server.tcl\"" \
-    -d "README_PATH=\"$work/readme.txt\"" \
     -d "LICENSE_PATH=\"$work/license.txt\"" \
     -d "ICON_BITMAP_PATH=\"$work/client-icon.xbm\"" \
     -d "ICON_MASK_PATH=\"$work/client-mask.xbm\"" \
@@ -151,14 +147,11 @@ esac
 # transport copy private to the HFS image instead of publishing a misleading
 # .sea.bin file.
 macbinary_output="$work/RetroChat-$version-Installer-$arch.bin"
-# The writable HFS image is an internal validation/staging artifact.  Only the
-# hybrid CD is published; physical Macs and emulators both consume the ISO.
-image_output="$work/retrochat-$version-macos-$arch.hfv"
-cd_output="$dist_dir/retrochat-$version-macos-$arch.iso"
-# Keep the distributed filename within the 31-character limit used by
-# System 7 and put the HFS Standard volume itself on the CD image.  Apple's
-# makehybrid creates HFS+, which System 7.5.3 cannot mount; it consequently
-# falls back to ISO 9660, uppercases the names, and loses resource forks.
+# Publish the HFS Standard volume directly as a raw disk image.  This preserves
+# resource forks, Finder metadata, mixed-case names, and System 7 compatibility
+# without an ISO 9660 view.
+image_output="$work/retrochat-$version-macos-$arch.img"
+final_output="$dist_dir/retrochat-$version-macos-$arch.img"
 macbinary encode -n -t 2 -o "$macbinary_output" "$installer"
 
 if [ "$arch" = 68k ]; then
@@ -188,7 +181,6 @@ if [ "$arch" = 68k ]; then
             ":tk8.0:$(basename "$runtime_file")"
     done
 fi
-hcopy -t packaging/classic-mac/INSTALLER-README.txt ":Read Me"
 hcopy -t LICENSE ":License"
 hfs_listing=$(hls -la)
 printf '%s\n' "$hfs_listing" | grep -q "APPL/RtIn.*RetroChat $version Installer $arch" || {
@@ -209,73 +201,19 @@ if [ "$arch" = 68k ]; then
         exit 1
     }
 fi
-printf '%s\n' "$hfs_listing" | grep -q "Read Me" || {
-    echo "HFS image is missing the mixed-case read-me name" >&2
-    exit 1
-}
 printf '%s\n' "$hfs_listing" | grep -q "License" || {
     echo "HFS image is missing the MIT license" >&2
     exit 1
 }
 humount
 
-# Master the same files as a real ISO 9660/HFS Standard hybrid CD.  The HFS
-# view is what Classic Mac OS uses: mkisofs decodes the MacBinary inputs into
-# native two-fork Macintosh files and retains their Finder metadata.  The ISO
-# view is deliberately present as a transport/read-me fallback for other
-# systems.  -part adds the Apple partition map required by some older physical
-# CD-ROM drivers.
-cd_stage="$work/cd-stage"
-mkdir -p "$cd_stage"
-cp "$macbinary_output" "$cd_stage/RetroChat-$version-Installer-$arch.bin"
-# Classic Mac text files use carriage returns.  Reuse the MacRoman/CR copies
-# embedded in the installer so both the HFS and ISO views open correctly in
-# SimpleText without displaying literal "\\n" sequences.
-cp "$work/readme.txt" "$cd_stage/Read-Me.txt"
-cp "$work/license.txt" "$cd_stage/LICENSE.txt"
-if [ "$arch" = 68k ]; then
-    cp "$cfm_68k" "$cd_stage/CFM-68K-Runtime-Enabler.bin"
-    cp "$work/Tcl8.0CFM68K.shlb.bin" "$cd_stage/Tcl8.0CFM68K.shlb.bin"
-    cp "$work/Tk8.0CFM68K.shlb.bin" "$cd_stage/Tk8.0CFM68K.shlb.bin"
-    cp -R "$runtime_root/tcl8.0" "$cd_stage/tcl8.0"
-    mkdir -p "$cd_stage/tk8.0"
-    for runtime_file in "$runtime_root"/tk8.0/*.tcl "$runtime_root"/tk8.0/tclIndex; do
-        test -f "$runtime_file" && cp "$runtime_file" "$cd_stage/tk8.0/"
-    done
-fi
-rm -f "$cd_output"
-mkisofs -quiet -data-change-warn -o "$cd_output" \
-    -R -J -hfs -part --macbin -mac-name \
-    -V "RETROCHAT_${arch}" -hfs-volid "RetroChat $arch" \
-    "$cd_stage"
-
-# Validate the Macintosh view, not merely the ISO 9660 view.  This catches the
-# exact packaging failure that made applications appear as documents or lose
-# their runtime libraries on System 7.
-hmount "$cd_output" >/dev/null
-cd_hfs_listing=$(hls -la)
-printf '%s\n' "$cd_hfs_listing" | grep -q "APPL/RtIn.*RetroChat $version Installer $arch" || {
-    echo "hybrid CD is missing the executable installer or its Finder metadata" >&2
-    exit 1
-}
-if [ "$arch" = 68k ]; then
-    printf '%s\n' "$cd_hfs_listing" | grep -q "INIT/cfm8.*CFM-68K Runtime Enabler" || {
-        echo "hybrid CD is missing the CFM-68K Runtime Enabler" >&2
-        exit 1
-    }
-    printf '%s\n' "$cd_hfs_listing" | grep -q "shlb/TclL.*Tcl8.0CFM68K.shlb" || {
-        echo "hybrid CD is missing the Tcl 8.0.3 shared library" >&2
-        exit 1
-    }
-    printf '%s\n' "$cd_hfs_listing" | grep -q "shlb/TclL.*Tk8.0CFM68K.shlb" || {
-        echo "hybrid CD is missing the Tk 8.0.3 shared library" >&2
-        exit 1
-    }
-fi
-humount
+rm -f "$final_output"
+mv "$image_output" "$final_output"
 
 rm -f "$dist_dir/retrochat-$version-macos-fat.iso"
+rm -f "$dist_dir/retrochat-$version-macos-68k.iso"
+rm -f "$dist_dir/retrochat-$version-macos-ppc.iso"
 rm -f "$dist_dir/retrochat-$version-macos-classic-fat.bin"
 rm -f "$dist_dir/retrochat-$version-macos-classic-fat.hfv"
 rm -f "$dist_dir/retrochat-$version-macos-$arch.sea.bin"
-echo "$cd_output"
+echo "$final_output"

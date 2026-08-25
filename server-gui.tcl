@@ -32,25 +32,16 @@ set serverUiHighlight "#383838"
 set serverUiButton "#d8d8d8"
 set serverUiDisabled "#787878"
 
-# Do not leave gray-to-pixel conversion up to a reversed one-bit X colormap.
-# NetBSD/mac68k can expose a higher logical X depth over a monochrome
-# framebuffer, so identify that target as well as checking Tk's depth.
-set serverUiMonochrome [expr {[winfo depth .] == 1}]
+# Identify NetBSD/mac68k only for compact sizing. Its one-bit X color mapping
+# is controlled by the X server; RetroChat does not attempt to invert it.
+set serverUiNetBSDMac68k 0
 if {[info exists ::tcl_platform(os)] &&
     [string compare $::tcl_platform(os) "NetBSD"] == 0 &&
     [info exists ::tcl_platform(machine)] &&
     ([string match "m68k*" $::tcl_platform(machine)] ||
      [string match "mac68k*" $::tcl_platform(machine)] ||
      [string match "m680*" $::tcl_platform(machine)])} {
-    set serverUiMonochrome 1
-}
-if {$serverUiMonochrome} {
-    set serverUiBackground "#ffffff"
-    set serverUiForeground "#000000"
-    set serverUiActive "#ffffff"
-    set serverUiHighlight "#000000"
-    set serverUiButton "#ffffff"
-    set serverUiDisabled "#000000"
+    set serverUiNetBSDMac68k 1
 }
 
 option add *background $serverUiBackground
@@ -70,6 +61,30 @@ option add *Listbox.background $serverUiBackground
 option add *selectBackground $serverUiHighlight
 option add *selectForeground "#ffffff"
 option add *insertBackground $serverUiForeground
+
+if {$serverUiNetBSDMac68k} {
+    foreach serverFont {TkDefaultFont TkTextFont TkFixedFont TkMenuFont
+                        TkHeadingFont TkCaptionFont TkSmallCaptionFont
+                        TkIconFont TkTooltipFont} {
+        catch {font configure $serverFont -size 10}
+    }
+}
+
+proc serverui::fitWindowToScreen {window marginX marginY} {
+    if {![winfo exists $window]} {return}
+    if {[catch {update idletasks}]} {return}
+    if {[catch {
+        set width [winfo reqwidth $window]
+        set height [winfo reqheight $window]
+        set maximumWidth [expr {[winfo screenwidth $window] - $marginX}]
+        set maximumHeight [expr {[winfo screenheight $window] - $marginY}]
+    }]} {return}
+    if {$width > $maximumWidth} {set width $maximumWidth}
+    if {$height > $maximumHeight} {set height $maximumHeight}
+    if {$width < 1 || $height < 1} {return}
+    catch {wm maxsize $window $maximumWidth $maximumHeight}
+    catch {wm geometry $window [format "%dx%d+0+0" $width $height]}
+}
 
 proc serverui::quit {} {
     catch {tk systray destroy}
@@ -188,7 +203,11 @@ proc serverui::showConnectedUsers {} {
     }
     toplevel .connectedUsers
     wm title .connectedUsers "Connected Users"
-    wm minsize .connectedUsers 760 280
+    if {$::serverUiNetBSDMac68k} {
+        wm minsize .connectedUsers 540 240
+    } else {
+        wm minsize .connectedUsers 760 280
+    }
     wm protocol .connectedUsers WM_DELETE_WINDOW serverui::closeConnectedUsers
 
     label .connectedUsers.title -text "Connected Users" -font TkHeadingFont -anchor w
@@ -224,6 +243,9 @@ proc serverui::showConnectedUsers {} {
     bind .connectedUsers.table.list <KeyRelease> serverui::updateDisconnectButton
     bind .connectedUsers <Escape> serverui::closeConnectedUsers
     refreshConnectedUsers
+    if {$::serverUiNetBSDMac68k} {
+        after idle {serverui::fitWindowToScreen .connectedUsers 12 36}
+    }
 }
 
 proc serverui::showAbout {} {
@@ -247,7 +269,7 @@ proc serverui::showAbout {} {
     }
     frame $dialog.details
     label $dialog.details.name -text "RetroChat Server" -font TkHeadingFont
-    label $dialog.details.version -text "Version 0.0.3"
+    label $dialog.details.version -text "Version 0.0.4"
     label $dialog.details.author -text "Brandon Regard"
     label $dialog.details.license -text "MIT License"
     label $dialog.details.date -text "August 17, 2026"
@@ -373,6 +395,9 @@ proc serverui::start {} {
         button .quit -text "Quit" -command serverui::quit -width 12
         pack .status .users .clear .quit -padx 8 -pady 5
         wm protocol . WM_DELETE_WINDOW serverui::quit
+        if {$::serverUiNetBSDMac68k} {
+            after idle {serverui::fitWindowToScreen . 12 36}
+        }
     }
 }
 

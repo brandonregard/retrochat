@@ -47,5 +47,19 @@ if {![catch {retrochat::parseRecord "CHAT xyz"}]} {
     puts stderr "FAIL malformed hex accepted"
     exit 1
 }
+
+# Tcl 8.0 has no encoding command. Exercise that compatibility path in a
+# child interpreter so modern test hosts do not mask legacy Windows failures.
+set legacy [interp create]
+$legacy hide encoding
+$legacy eval [list source [file join $root lib protocol.tcl]]
+set legacyRecord [$legacy eval {
+    retrochat::makeRecord CHAT [list win98 "legacy text"]
+}]
+set legacyParsed [$legacy eval [list retrochat::parseRecord $legacyRecord]]
+assertEqual [lindex [lindex $legacyParsed 1] 1] "legacy text" \
+    "Tcl 8.0 text round trip without encoding command"
+interp delete $legacy
+
 puts "protocol tests passed"
 exit 0

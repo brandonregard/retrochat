@@ -62,7 +62,8 @@ proc app::updateSendProgress {name sent total} {
     }
     set transferText "Sending [shortFileName $name]: $percent%"
     if {![winfo ismapped .transfer]} {
-        pack .transfer -side top -fill x -padx 4 -pady 2 -before .compose
+        pack .transfer -side bottom -fill x -padx 4 -pady 2 \
+            -before .transcript
     }
     update idletasks
     set width [winfo width .transfer.bar]
@@ -89,7 +90,8 @@ proc app::showSendWaiting {name} {
     variable transferText
     set transferText "Waiting for recipient: [shortFileName $name]"
     if {![winfo ismapped .transfer]} {
-        pack .transfer -side top -fill x -padx 4 -pady 2 -before .compose
+        pack .transfer -side bottom -fill x -padx 4 -pady 2 \
+            -before .transcript
     }
     .transfer.bar coords progress 1 1 1 9
     update idletasks
@@ -341,7 +343,7 @@ proc app::showAbout {} {
     }
     frame $dialog.details
     label $dialog.details.name -text "RetroChat Client" -font TkHeadingFont
-    label $dialog.details.version -text "Version 0.0.3"
+    label $dialog.details.version -text "Version 0.0.4"
     label $dialog.details.author -text "Brandon Regard"
     label $dialog.details.license -text "MIT License"
     label $dialog.details.date -text "August 17, 2026"
@@ -371,7 +373,8 @@ proc app::updateReceiveProgress {name received total} {
     if {$percent > 100} {set percent 100}
     set transferText "Receiving [shortFileName $name]: $percent%"
     if {![winfo ismapped .transfer]} {
-        pack .transfer -side top -fill x -padx 4 -pady 2 -before .compose
+        pack .transfer -side bottom -fill x -padx 4 -pady 2 \
+            -before .transcript
     }
     update idletasks
     set width [winfo width .transfer.bar]
@@ -1691,31 +1694,16 @@ set uiButtonForeground "#101010"
 set uiButtonActive "#b0b0b0"
 set uiButtonDisabled "#787878"
 
-# A one-bit X server may map intermediate grays through a reversed static
-# colormap. Some NetBSD/mac68k X servers expose a higher logical depth over a
-# monochrome framebuffer, so identify that target as well as checking depth.
-set uiMonochrome [expr {[winfo depth .] == 1}]
+# Identify NetBSD/mac68k only for compact sizing. Its one-bit X color mapping
+# is controlled by the X server; RetroChat does not attempt to invert it.
+set uiNetBSDMac68k 0
 if {[info exists ::tcl_platform(os)] &&
     [string compare $::tcl_platform(os) "NetBSD"] == 0 &&
     [info exists ::tcl_platform(machine)] &&
     ([string match "m68k*" $::tcl_platform(machine)] ||
      [string match "mac68k*" $::tcl_platform(machine)] ||
      [string match "m680*" $::tcl_platform(machine)])} {
-    set uiMonochrome 1
-}
-if {$uiMonochrome} {
-    set uiBackground "#ffffff"
-    set uiSurface "#ffffff"
-    set uiField "#ffffff"
-    set uiForeground "#000000"
-    set uiMuted "#000000"
-    set uiAccent "#000000"
-    set uiSelection "#000000"
-    set uiError "#000000"
-    set uiButtonBackground "#ffffff"
-    set uiButtonForeground "#000000"
-    set uiButtonActive "#ffffff"
-    set uiButtonDisabled "#000000"
+    set uiNetBSDMac68k 1
 }
 
 option add *background $uiBackground
@@ -1738,8 +1726,40 @@ option add *Button.activeBackground $uiButtonActive
 option add *Button.activeForeground $uiButtonForeground
 option add *Button.disabledForeground $uiButtonDisabled
 
+# The mac68k X framebuffer is normally 640x480 to 1152x870. Its default X
+# resources can select an unusually large font, which makes character-sized
+# Tk widgets grow beyond the screen. Keep this target compact without changing
+# the appearance on any other platform.
+if {$uiNetBSDMac68k} {
+    foreach uiFont {TkDefaultFont TkTextFont TkFixedFont TkMenuFont
+                    TkHeadingFont TkCaptionFont TkSmallCaptionFont
+                    TkIconFont TkTooltipFont} {
+        catch {font configure $uiFont -size 10}
+    }
+}
+
+proc app::fitWindowToScreen {window marginX marginY} {
+    if {![winfo exists $window]} {return}
+    if {[catch {update idletasks}]} {return}
+    if {[catch {
+        set width [winfo reqwidth $window]
+        set height [winfo reqheight $window]
+        set maximumWidth [expr {[winfo screenwidth $window] - $marginX}]
+        set maximumHeight [expr {[winfo screenheight $window] - $marginY}]
+    }]} {return}
+    if {$width > $maximumWidth} {set width $maximumWidth}
+    if {$height > $maximumHeight} {set height $maximumHeight}
+    if {$width < 1 || $height < 1} {return}
+    catch {wm maxsize $window $maximumWidth $maximumHeight}
+    catch {wm geometry $window [format "%dx%d+0+0" $width $height]}
+}
+
 wm title . "RetroChat"
-wm minsize . 640 420
+if {$uiNetBSDMac68k} {
+    wm minsize . 520 340
+} else {
+    wm minsize . 640 420
+}
 
 if {[info exists tcl_platform(os)] &&
     [string compare $tcl_platform(os) "Darwin"] == 0 &&
@@ -1987,8 +2007,9 @@ pack .compose.send \
     -pady 6
 
 pack .compose \
-    -side top \
-    -fill x
+    -side bottom \
+    -fill x \
+    -before .transcript
 
 label .status \
     -textvariable app::status \
@@ -2001,7 +2022,8 @@ label .status \
 
 pack .status \
     -side bottom \
-    -fill x
+    -fill x \
+    -before .compose
 
 bind .compose.message <Control-Return> {
     app::sendChat
@@ -2009,5 +2031,9 @@ bind .compose.message <Control-Return> {
 }
 
 wm protocol . WM_DELETE_WINDOW app::quit
+
+if {$uiNetBSDMac68k} {
+    after idle {app::fitWindowToScreen . 12 36}
+}
 
 focus .compose.message

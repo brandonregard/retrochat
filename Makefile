@@ -1,4 +1,4 @@
-VERSION ?= 0.0.3
+VERSION ?= 0.0.4
 DIST_DIR ?= dist
 TARGET = netbsd-10.1-mac68k
 TCL805_INSTALLER ?= packaging/windows98/runtime/tcl805.exe
@@ -53,7 +53,6 @@ windows95-installer: icons
 	@command -v makensis >/dev/null 2>&1 || { echo "Windows 95/98 setup build requires makensis" >&2; exit 1; }
 	mkdir -p $(DIST_DIR)
 	DIST_DIR=$(DIST_DIR) sh packaging/windows98/build-launchers.sh
-	VERSION=$(VERSION) DIST_DIR=$(DIST_DIR) TCL805_INSTALLER="$(abspath $(TCL805_INSTALLER))" sh packaging/windows/build-msi.sh i386
 	makensis -DVERSION=$(VERSION) -DTCL805_INSTALLER="$(abspath $(TCL805_INSTALLER))" packaging/windows98/RetroChat.nsi
 	rm -f $(DIST_DIR)/RetroChat-client.exe $(DIST_DIR)/RetroChat-server.exe
 
@@ -70,7 +69,9 @@ windows95-installer-iso: windows95-installer
 
 windows-amd64-installer: icons
 	@test -f "$(WINDOWS_AMD64_RUNTIME)" || { echo "Missing $(WINDOWS_AMD64_RUNTIME)" >&2; exit 1; }
+	@command -v makensis >/dev/null 2>&1 || { echo "Windows amd64 setup build requires makensis" >&2; exit 1; }
 	VERSION=$(VERSION) DIST_DIR=$(DIST_DIR) WINDOWS_AMD64_RUNTIME="$(abspath $(WINDOWS_AMD64_RUNTIME))" sh packaging/windows-amd64/build.sh
+	makensis -DVERSION=$(VERSION) packaging/windows-amd64/RetroChat.nsi
 	rm -rf $(DIST_DIR)/windows-amd64-runtime
 	rm -f $(DIST_DIR)/RetroChat-amd64-client.exe $(DIST_DIR)/RetroChat-amd64-server.exe
 
@@ -134,7 +135,7 @@ $(DIST_DIR)/retrochat-$(VERSION)-windows98-test-kit.zip: client.tcl server.tcl s
 	sh packaging/normalize-text.sh crlf LICENSE $(DIST_DIR)/retrochat-$(VERSION)-windows98-test-kit/LICENSE.txt
 	cd $(DIST_DIR) && zip -qr retrochat-$(VERSION)-windows98-test-kit.zip retrochat-$(VERSION)-windows98-test-kit
 
-$(DIST_DIR)/retrochat-client-$(VERSION)-$(TARGET).tar.gz: client.tcl lib/protocol.tcl LICENSE assets/icons/png/client/client-tray.gif assets/icons/netbsd/client-16.png assets/icons/netbsd/client-32.png assets/icons/netbsd/client-48.png assets/icons/netbsd/client-256.png packaging/netbsd/README.mac68k packaging/netbsd/retrochat-client
+$(DIST_DIR)/retrochat-client-$(VERSION)-$(TARGET).tar.gz: client.tcl lib/protocol.tcl LICENSE assets/icons/png/client/client-tray.gif assets/icons/netbsd/client-16.png assets/icons/netbsd/client-32.png assets/icons/netbsd/client-48.png assets/icons/netbsd/client-256.png packaging/netbsd/retrochat-client
 	rm -rf $(DIST_DIR)/retrochat-client-$(VERSION)-$(TARGET)
 	mkdir -p $(DIST_DIR)/retrochat-client-$(VERSION)-$(TARGET)/lib
 	cp client.tcl $(DIST_DIR)/retrochat-client-$(VERSION)-$(TARGET)/
@@ -143,13 +144,12 @@ $(DIST_DIR)/retrochat-client-$(VERSION)-$(TARGET).tar.gz: client.tcl lib/protoco
 	cp assets/icons/png/client/client-tray.gif $(DIST_DIR)/retrochat-client-$(VERSION)-$(TARGET)/assets/icons/png/client/
 	mkdir -p $(DIST_DIR)/retrochat-client-$(VERSION)-$(TARGET)/assets/icons/netbsd
 	cp assets/icons/netbsd/client-*.png $(DIST_DIR)/retrochat-client-$(VERSION)-$(TARGET)/assets/icons/netbsd/
-	cp packaging/netbsd/README.mac68k $(DIST_DIR)/retrochat-client-$(VERSION)-$(TARGET)/README.txt
 	cp LICENSE $(DIST_DIR)/retrochat-client-$(VERSION)-$(TARGET)/LICENSE.txt
 	cp packaging/netbsd/retrochat-client $(DIST_DIR)/retrochat-client-$(VERSION)-$(TARGET)/
 	chmod 755 $(DIST_DIR)/retrochat-client-$(VERSION)-$(TARGET)/retrochat-client
 	COPYFILE_DISABLE=1 tar --no-xattrs -C $(DIST_DIR) -czf $@ retrochat-client-$(VERSION)-$(TARGET)
 
-$(DIST_DIR)/retrochat-server-$(VERSION)-$(TARGET).tar.gz: server.tcl server-gui.tcl lib/protocol.tcl LICENSE assets/icons/png/server/server-tray.gif assets/icons/netbsd/server-16.png assets/icons/netbsd/server-32.png assets/icons/netbsd/server-48.png assets/icons/netbsd/server-256.png packaging/netbsd/README.mac68k packaging/netbsd/retrochat-server
+$(DIST_DIR)/retrochat-server-$(VERSION)-$(TARGET).tar.gz: server.tcl server-gui.tcl lib/protocol.tcl LICENSE assets/icons/png/server/server-tray.gif assets/icons/netbsd/server-16.png assets/icons/netbsd/server-32.png assets/icons/netbsd/server-48.png assets/icons/netbsd/server-256.png packaging/netbsd/retrochat-server
 	rm -rf $(DIST_DIR)/retrochat-server-$(VERSION)-$(TARGET)
 	mkdir -p $(DIST_DIR)/retrochat-server-$(VERSION)-$(TARGET)/lib
 	cp server.tcl server-gui.tcl $(DIST_DIR)/retrochat-server-$(VERSION)-$(TARGET)/
@@ -158,7 +158,6 @@ $(DIST_DIR)/retrochat-server-$(VERSION)-$(TARGET).tar.gz: server.tcl server-gui.
 	cp assets/icons/png/server/server-tray.gif $(DIST_DIR)/retrochat-server-$(VERSION)-$(TARGET)/assets/icons/png/server/
 	mkdir -p $(DIST_DIR)/retrochat-server-$(VERSION)-$(TARGET)/assets/icons/netbsd
 	cp assets/icons/netbsd/server-*.png $(DIST_DIR)/retrochat-server-$(VERSION)-$(TARGET)/assets/icons/netbsd/
-	cp packaging/netbsd/README.mac68k $(DIST_DIR)/retrochat-server-$(VERSION)-$(TARGET)/README.txt
 	cp LICENSE $(DIST_DIR)/retrochat-server-$(VERSION)-$(TARGET)/LICENSE.txt
 	cp packaging/netbsd/retrochat-server $(DIST_DIR)/retrochat-server-$(VERSION)-$(TARGET)/
 	chmod 755 $(DIST_DIR)/retrochat-server-$(VERSION)-$(TARGET)/retrochat-server

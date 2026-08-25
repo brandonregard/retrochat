@@ -125,27 +125,27 @@ Each target below can be built independently.
 
 | Distribution | Command | Primary output |
 | --- | --- | --- |
-| macOS arm64 | `make macos-installer` | `dist/retrochat-0.0.3-macos-arm64.dmg` |
-| macOS x86_64/amd64 | `make macos-amd64-installer` | `dist/retrochat-0.0.3-macos-amd64.dmg` |
-| Windows 95/98 i386 | `make windows95-installer` | `dist/retrochat-0.0.3-windows-i386-setup.exe` and `.msi` |
-| Windows 10+ amd64 | `make windows-amd64-installer` | `dist/retrochat-0.0.3-windows-amd64.msi` |
-| Debian-compatible Linux amd64 | `make linux-amd64-installer-iso` | `dist/retrochat-0.0.3-linux-amd64.iso` |
-| NetBSD 10.1/mac68k | `make netbsd-mac68k-installer` | `dist/retrochat-0.0.3-netbsd-mac68k.iso` |
-| Classic Mac OS 68K | `make classic-mac-68k-installer` | `dist/retrochat-0.0.3-macos-68k.iso` |
-| Classic Mac OS PowerPC | `make classic-mac-ppc-installer` | `dist/retrochat-0.0.3-macos-ppc.iso` |
+| macOS arm64 | `make macos-installer` | `dist/retrochat-0.0.4-macos-arm64.dmg` |
+| macOS x86_64/amd64 | `make macos-amd64-installer` | `dist/retrochat-0.0.4-macos-amd64.dmg` |
+| Windows 95/98 i386 | `make windows95-installer` | `dist/retrochat-0.0.4-windows-i386-setup.exe` |
+| Windows 10+ amd64 | `make windows-amd64-installer` | `dist/retrochat-0.0.4-windows-amd64-setup.exe` |
+| Debian-compatible Linux amd64 | `make linux-amd64-installer-iso` | `dist/retrochat-0.0.4-linux-amd64.iso` |
+| NetBSD 10.1/mac68k | `make netbsd-mac68k-installer` | `dist/retrochat-0.0.4-netbsd-mac68k.iso` |
+| Classic Mac OS 68K | `make classic-mac-68k-installer` | `dist/retrochat-0.0.4-macos-68k.img` |
+| Classic Mac OS PowerPC | `make classic-mac-ppc-installer` | `dist/retrochat-0.0.4-macos-ppc.img` |
 | Both Classic Mac architectures | `make classic-mac-installers` | both Classic Mac hybrid CDs |
 
 The version in filenames comes from `VERSION` at the top of the Makefile. To
 build another version without editing the file, pass it on the command line:
 
 ```sh
-make VERSION=0.0.3 macos-installer
+make VERSION=0.0.4 macos-installer
 ```
 
 To place results somewhere other than `dist`, set `DIST_DIR`:
 
 ```sh
-make VERSION=0.0.3 DIST_DIR=release-build windows-amd64-installer
+make VERSION=0.0.4 DIST_DIR=release-build windows-amd64-installer
 ```
 
 ## 5. Build the complete release set
@@ -158,18 +158,17 @@ make test
 make installers
 ```
 
-For version 0.0.3, a successful complete build produces:
+For version 0.0.4, a successful complete build produces:
 
 ```text
-dist/retrochat-0.0.3-linux-amd64.iso
-dist/retrochat-0.0.3-macos-68k.iso
-dist/retrochat-0.0.3-macos-amd64.dmg
-dist/retrochat-0.0.3-macos-arm64.dmg
-dist/retrochat-0.0.3-macos-ppc.iso
-dist/retrochat-0.0.3-netbsd-mac68k.iso
-dist/retrochat-0.0.3-windows-amd64.msi
-dist/retrochat-0.0.3-windows-i386-setup.exe
-dist/retrochat-0.0.3-windows-i386.msi
+dist/retrochat-0.0.4-linux-amd64.iso
+dist/retrochat-0.0.4-macos-68k.img
+dist/retrochat-0.0.4-macos-amd64.dmg
+dist/retrochat-0.0.4-macos-arm64.dmg
+dist/retrochat-0.0.4-macos-ppc.img
+dist/retrochat-0.0.4-netbsd-mac68k.iso
+dist/retrochat-0.0.4-windows-amd64-setup.exe
+dist/retrochat-0.0.4-windows-i386-setup.exe
 ```
 
 The Classic Mac `.iso` files are ISO 9660/HFS Standard hybrid CDs intended for
@@ -199,7 +198,7 @@ The modern arm64 macOS build defaults to Homebrew's Apple-silicon prefixes. If
 Homebrew is installed elsewhere, call the build script with explicit paths:
 
 ```sh
-VERSION=0.0.3 \
+VERSION=0.0.4 \
 TCL_PREFIX="$(brew --prefix tcl-tk)" \
 TOMMATH_PREFIX="$(brew --prefix libtommath)" \
 sh packaging/macos/build.sh
@@ -221,14 +220,14 @@ shasum -a 256 dist/*
 Verify the two modern macOS disk images:
 
 ```sh
-hdiutil verify dist/retrochat-0.0.3-macos-arm64.dmg
-hdiutil verify dist/retrochat-0.0.3-macos-amd64.dmg
+hdiutil verify dist/retrochat-0.0.4-macos-arm64.dmg
+hdiutil verify dist/retrochat-0.0.4-macos-amd64.dmg
 ```
 
 List the Macintosh view of a Classic Mac hybrid CD:
 
 ```sh
-hmount dist/retrochat-0.0.3-macos-68k.iso
+hmount dist/retrochat-0.0.4-macos-68k.img
 hls -la
 humount
 ```

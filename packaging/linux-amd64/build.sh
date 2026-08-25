@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-version=${VERSION:-0.0.3}
+version=${VERSION:-0.0.4}
 dist_dir=${DIST_DIR:-dist}
 runtime_deb=${LINUX_AMD64_RUNTIME:-packaging/linux-amd64/runtime/tcltk86-bookworm-amd64.deb}
 deb_ar=${DEB_AR:-x86_64-w64-mingw32-ar}

@@ -3,7 +3,7 @@ Unicode true
 !include "MUI2.nsh"
 
 !ifndef VERSION
-!define VERSION "0.0.3"
+!define VERSION "0.0.4"
 !endif
 
 Name "RetroChat ${VERSION} AMD64"

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-version=${VERSION:-0.0.3}
+version=${VERSION:-0.0.4}
 dist_dir=${DIST_DIR:-dist}
 macos_arch=${MACOS_ARCH:-arm64}
 output_arch=${MACOS_OUTPUT_ARCH:-$macos_arch}

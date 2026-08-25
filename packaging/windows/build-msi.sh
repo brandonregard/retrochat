@@ -15,7 +15,7 @@ case "$arch" in
     *) echo "unsupported Windows MSI architecture: $arch" >&2; exit 2 ;;
 esac
 
-version=${VERSION:-0.0.3}
+version=${VERSION:-0.0.4}
 dist_dir=${DIST_DIR:-dist}
 work=$(mktemp -d "$dist_dir/.windows-$arch-msi.XXXXXX")
 trap 'rm -rf "$work"' EXIT HUP INT TERM
